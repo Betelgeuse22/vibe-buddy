@@ -1,0 +1,159 @@
+/* Базовые настройки страницы */
+body {
+  background-color: #f7f9fc;
+  margin: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* ГЛАВНЫЙ КОНТЕЙНЕР (Теперь он стабилен) */
+.chat-container {
+  width: 400px; /* Фиксированная ширина */
+  height: 85vh; /* Фиксированная высота */
+  background: white;
+  display: flex;
+  flex-direction: column;
+  border-radius: 24px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+  overflow: hidden; /* Чтобы ничего не вылезало за границы */
+  position: relative;
+}
+
+/* Шапка сайта */
+header {
+  background: #6c5ce7;
+  color: white;
+  padding: 15px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+/* Кнопка сброса в шапке */
+.reset-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  padding: 5px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: background 0.3s;
+}
+
+.reset-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* СПИСОК СООБЩЕНИЙ */
+.messages-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #ffffff;
+}
+
+/* ПУЗЫРЬКИ СООБЩЕНИЙ */
+.message-bubble {
+  max-width: 80%; /* Пузырек не может быть шире 80% контейнера */
+  padding: 10px 16px;
+  border-radius: 18px;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  word-wrap: break-word; /* ЗАСТАВЛЯЕМ ТЕКСТ ПЕРЕНОСИТЬСЯ */
+  overflow-wrap: break-word; /* Дополнительная защита от длинных слов */
+}
+
+.user {
+  align-self: flex-end;
+  background-color: #6c5ce7;
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+
+.ai {
+  align-self: flex-start;
+  background-color: #f1f2f6;
+  color: #2f3542;
+  border-bottom-left-radius: 4px;
+}
+
+/* Анимация "Думает" */
+.loading {
+  font-style: italic;
+  opacity: 0.7;
+}
+
+/* ОБЛАСТЬ ВВОДА */
+.input-area {
+  padding: 15px;
+  background: white;
+  display: flex;
+  gap: 10px;
+  border-top: 1px solid #f1f2f6;
+}
+
+.input-area input {
+  flex: 1;
+  padding: 12px 18px;
+  border: 1px solid #e1e4e8;
+  border-radius: 25px;
+  outline: none;
+  font-size: 0.9rem;
+  transition: border-color 0.3s;
+}
+
+.input-area input:focus {
+  border-color: #6c5ce7;
+}
+
+.send-btn {
+  background: #6c5ce7;
+  color: white;
+  border: none;
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s, background 0.3s;
+}
+
+.send-btn:hover {
+  background: #5b4cc4;
+  transform: scale(1.05);
+}
+
+.send-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+/* Анимация точек */
+.dot {
+  animation: blink 1.4s infinite both;
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.dot:nth-child(2) { animation-delay: 0.2s; }
+.dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes blink {
+  0% { opacity: 0.2; }
+  20% { opacity: 1; }
+  100% { opacity: 0.2; }
+}
