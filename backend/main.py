@@ -10,9 +10,15 @@ from typing import List
 
 app = FastAPI()
 
+# Список разрешенных адресов
+origins = [
+    "http://localhost:5173",          # Локальный React (Vite)
+    "https://vibe-buddy.vercel.app",  # Твой фронтенд на Vercel
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

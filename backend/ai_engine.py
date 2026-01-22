@@ -1,52 +1,46 @@
 import os
-from google import genai
-from google.genai import types
+from openai import AsyncOpenAI  # Используем универсальный стандарт
 from dotenv import load_dotenv
 
 load_dotenv()
-os.environ["PYTHONUTF8"] = "1"
 
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-
-# Читаем инструкцию из .env.
-# Если вдруг она там не найдется, добавим запасной вариант (fallback)
-system_prompt = os.getenv("SYSTEM_INSTRUCTIONS", "Ты — чилловый бро.")
-
-VIBE_CONFIG = types.GenerateContentConfig(
-    system_instruction=system_prompt,
-    temperature=0.8,
+# Инициализируем клиента для Groq
+client = AsyncOpenAI(
+    api_key=os.getenv("GROQ_API_KEY"),
+    base_url="https://api.groq.com/openai/v1"  # Указываем путь к Groq
 )
 
 
 async def get_vibe_response(history_data):
-    formatted_history = []
-    for msg in history_data:
-        role = 'user' if msg.role == 'user' else 'model'
-        formatted_history.append(
-            types.Content(
-                role=role,
-                parts=[types.Part(text=str(p)) for p in msg.parts]
-            )
+    try:
+        messages = [
+            {"role": "system", "content": os.getenv("SYSTEM_INSTRUCTIONS")}]
+
+        for msg in history_data:
+            role = "assistant" if msg.role == "model" else "user"
+            messages.append({"role": role, "content": msg.parts[0]})
+
+        # ОБНОВЛЕННЫЕ МОДЕЛИ 2026 ГОДА
+        # 1. llama-3.3-70b-versatile (Умная, замена 3.1-70b)
+        # 2. llama-3.1-8b-instant (Очень быстрая)
+
+        response = await client.chat.completions.create(
+            model="llama-3.3-70b-versatile",  # <--- Поменяли здесь
+            messages=messages,
+            temperature=0.8,
+            max_tokens=500
         )
 
-    # Мы используем ТОЛЬКО те имена, которые были в твоём списке 'check_models'
-    # 'gemini-flash-latest' — это самый надёжный вариант
-    models_to_try = ["gemini-flash-latest",
-                     "gemini-2.0-flash", "gemini-2.0-flash-lite"]
+        return response.choices[0].message.content
 
-    for model_name in models_to_try:
+    except Exception as e:
+        # Если 3.3 вдруг тоже закапризничает, попробуем instant-версию
+        print(f"Ошибка модели: {e}")
         try:
-            print(
-                f"--- Попытка запроса к модели из твоего списка: {model_name} ---")
-            response = client.models.generate_content(
-                model=model_name,
-                config=VIBE_CONFIG,
-                contents=formatted_history
+            fallback = await client.chat.completions.create(
+                model="llama-3.1-8b-instant",
+                messages=messages
             )
-            return response.text
-        except Exception as e:
-            error_str = str(e).encode('utf-8', errors='ignore').decode('utf-8')
-            print(f"Ошибка {model_name}: {error_str[:150]}...")
-            continue  # Пробуем следующую модель из списка
-
-    return "Бро, Google в Германии сегодня очень строг. Дай ему минуту отдыха! ☕"
+            return fallback.choices[0].message.content
+        except:
+            return "Бро, в Groq тоже бывают перегрузки. Дай мне 5 секунд! ☕"

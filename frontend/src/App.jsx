@@ -4,6 +4,8 @@
 import { useState, useEffect, useRef } from 'react'
 import './App.css'
 
+const API_URL = import.meta.env.VITE_API_URL;
+
 function App() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([]);
@@ -33,7 +35,7 @@ function App() {
     setIsLoading(true);
 
     try {
-      const res = await fetch('https://vibe-buddy.onrender.com/chat', {
+      const res = await fetch(`${API_URL}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedHistory)
