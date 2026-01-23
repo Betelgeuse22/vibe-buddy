@@ -32,8 +32,12 @@ class Message(BaseModel):
     parts: List[str]  # сам текст
 
 
+class ChatRequest(BaseModel):
+    history: List[Message]
+
+
 @app.post("/chat")  # Поменяли GET на POST, так как данных будет много
-async def chat(history: List[Message]):
-    # history — это весь наш список сообщений из React
-    ai_answer = await get_vibe_response(history)
-    return {"ai_response": ai_answer}
+async def chat(request: ChatRequest):
+    # Теперь данные лежат в request.history
+    response = await get_vibe_response(request.history)
+    return response
