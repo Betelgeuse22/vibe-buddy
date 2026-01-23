@@ -1,57 +1,90 @@
+/* 1. ПЕРЕМЕННЫЕ (Удобно для будущих персонажей) */
+:root {
+  --primary-color: #6c5ce7;
+  --bg-page: #f7f9fc;
+  --bg-ai: #f1f2f6;
+  --text-dark: #2f3542;
+  --white: #ffffff;
+  --transition: all 0.3s ease;
+}
+
 /* Базовые настройки страницы */
 body {
-  background-color: #f7f9fc;
+  background-color: var(--bg-page);
   margin: 0;
   display: flex;
   justify-content: center;
   align-items: center;
   height: 100vh;
-  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-family: 'Segoe UI', Roboto, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-/* ГЛАВНЫЙ КОНТЕЙНЕР (Теперь он стабилен) */
+/* ГЛАВНЫЙ КОНТЕЙНЕР */
 .chat-container {
-  width: 400px; /* Фиксированная ширина */
-  height: 85vh; /* Фиксированная высота */
-  background: white;
+  width: 400px;
+  height: 85vh;
+  background: var(--white);
   display: flex;
   flex-direction: column;
-  border-radius: 24px;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
-  overflow: hidden; /* Чтобы ничего не вылезало за границы */
+  border-radius: 28px; /* Чуть мягче углы */
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
   position: relative;
 }
 
-/* Шапка сайта */
+/* ШАПКА */
 header {
-  background: #6c5ce7;
-  color: white;
-  padding: 15px 20px;
+  background: var(--primary-color);
+  color: var(--white);
+  padding: 18px 24px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  z-index: 10;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 header h1 {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: -0.5px;
 }
 
-/* Кнопка сброса в шапке */
+/* Индикатор статуса с пульсацией */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  background-color: #52c41a;
+  border-radius: 50%;
+  box-shadow: 0 0 0 rgba(82, 196, 26, 0.4);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(82, 196, 26, 0.7); }
+  70% { box-shadow: 0 0 0 10px rgba(82, 196, 26, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(82, 196, 26, 0); }
+}
+
 .reset-btn {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.15);
   border: none;
-  color: white;
-  padding: 5px 12px;
-  border-radius: 12px;
+  color: var(--white);
+  padding: 6px 14px;
+  border-radius: 10px;
   cursor: pointer;
-  font-size: 0.8rem;
-  transition: background 0.3s;
+  font-size: 0.75rem;
+  backdrop-filter: blur(4px);
+  transition: var(--transition);
 }
 
-.reset-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
-}
+.reset-btn:hover { background: rgba(255, 255, 255, 0.25); }
 
 /* СПИСОК СООБЩЕНИЙ */
 .messages-list {
@@ -60,100 +93,119 @@ header h1 {
   padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  background: #ffffff;
+  gap: 16px; /* Чуть больше пространства */
+  background: #fdfdff;
+  scroll-behavior: smooth;
 }
+
+/* Стилизация скроллбара (для Chrome/Safari) */
+.messages-list::-webkit-scrollbar { width: 4px; }
+.messages-list::-webkit-scrollbar-thumb { background: #e1e4e8; border-radius: 10px; }
 
 /* ПУЗЫРЬКИ СООБЩЕНИЙ */
 .message-bubble {
-  max-width: 80%; /* Пузырек не может быть шире 80% контейнера */
-  padding: 10px 16px;
-  border-radius: 18px;
-  font-size: 0.95rem;
-  line-height: 1.4;
-  word-wrap: break-word; /* ЗАСТАВЛЯЕМ ТЕКСТ ПЕРЕНОСИТЬСЯ */
-  overflow-wrap: break-word; /* Дополнительная защита от длинных слов */
+  max-width: 85%;
+  padding: 12px 16px;
+  border-radius: 20px;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  position: relative;
+  transition: var(--transition);
+  display: flex;
+  flex-direction: column;
+}
+
+.message-bubble.loading {
+  flex-direction: row; 
+  align-items: center;
+  gap: 2px;
+  width: fit-content;
 }
 
 .user {
   align-self: flex-end;
-  background-color: #6c5ce7;
-  color: white;
+  background: var(--primary-color);
+  color: var(--white);
   border-bottom-right-radius: 4px;
+  box-shadow: 0 4px 12px rgba(108, 92, 231, 0.2);
 }
 
 .ai {
   align-self: flex-start;
-  background-color: #f1f2f6;
-  color: #2f3542;
+  background: var(--bg-ai);
+  color: var(--text-dark);
   border-bottom-left-radius: 4px;
+  border-left: 4px solid transparent; /* Заготовка под эмоцию */
 }
 
-/* Анимация "Думает" */
-.loading {
-  font-style: italic;
-  opacity: 0.7;
+.ai .text-content {
+  color: #2f3542;
 }
+
+/* ФУТЕР СООБЩЕНИЯ (Время) */
+.message-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+  opacity: 0.6;
+}
+
+.message-time {
+  font-size: 0.65rem;
+  font-weight: 500;
+}
+
+.user .message-time { color: rgba(255, 255, 255, 0.8); }
 
 /* ОБЛАСТЬ ВВОДА */
 .input-area {
-  padding: 15px;
-  background: white;
+  padding: 20px;
+  background: var(--white);
   display: flex;
-  gap: 10px;
+  gap: 12px;
   border-top: 1px solid #f1f2f6;
+  align-items: center;
 }
 
 .input-area input {
   flex: 1;
-  padding: 12px 18px;
-  border: 1px solid #e1e4e8;
+  padding: 14px 20px;
+  border: 1px solid #edf0f5;
+  background: #f8f9fb;
   border-radius: 25px;
   outline: none;
-  font-size: 0.9rem;
-  transition: border-color 0.3s;
+  font-size: 0.95rem;
+  color: #2f3542; /* Явно задаем темный цвет текста */
+  transition: var(--transition);
 }
 
 .input-area input:focus {
-  border-color: #6c5ce7;
+  border-color: var(--primary-color);
+  background: var(--white);
+  box-shadow: 0 0 0 4px rgba(108, 92, 231, 0.05);
 }
 
 .send-btn {
-  background: #6c5ce7;
-  color: white;
+  background: var(--primary-color);
+  color: var(--white);
   border: none;
-  width: 45px;
-  height: 45px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.2s, background 0.3s;
+  transition: var(--transition);
+  box-shadow: 0 4px 10px rgba(108, 92, 231, 0.3);
 }
 
-.send-btn:hover {
-  background: #5b4cc4;
-  transform: scale(1.05);
+.send-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(108, 92, 231, 0.4);
 }
 
 .send-btn:disabled {
-  background: #ccc;
-  cursor: not-allowed;
-}
-
-/* Анимация точек */
-.dot {
-  animation: blink 1.4s infinite both;
-  font-size: 1.5rem;
-  font-weight: bold;
-}
-
-.dot:nth-child(2) { animation-delay: 0.2s; }
-.dot:nth-child(3) { animation-delay: 0.4s; }
-
-@keyframes blink {
-  0% { opacity: 0.2; }
-  20% { opacity: 1; }
-  100% { opacity: 0.2; }
+  background: #d1d5db;
+  box-shadow: none;
 }
