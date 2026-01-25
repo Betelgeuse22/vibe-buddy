@@ -251,3 +251,17 @@ header h1 {
   display: flex;
   align-items: center;
 }
+
+.loading-text {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #888;
+  font-weight: 500;
+  animation: breathe 2s infinite ease-in-out;
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 0.5; transform: scale(0.98); }
+  50% { opacity: 1; transform: scale(1); }
+}

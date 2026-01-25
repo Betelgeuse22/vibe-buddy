@@ -125,3 +125,10 @@ async def chat(request: ChatRequest, db: Session = Depends(get_session)):
 @app.get("/health")
 def health_check():
     return {"status": "alive", "db": "connected"}
+
+# 5. Добавляем эндпоинт-пинг на бэкенд
+
+
+@app.get("/ping")
+def ping():
+    return {"status": "ok"}

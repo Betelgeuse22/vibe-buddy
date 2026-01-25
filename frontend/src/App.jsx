@@ -32,28 +32,51 @@ function App() {
 
   // --- ЭФФЕКТЫ (EFFECTS) ---
 
-  // ЭФФЕКТ 1: Срабатывает ОДИН РАЗ при открытии сайта.
-  // Его задача — разбудить бэкенд и получить список имен (Макс, Алиса...).
+  // --- ЭФФЕКТ 1: Агрессивное пробуждение и загрузка данных ---
   useEffect(() => {
     const initApp = async () => {
       setIsInitialLoading(true);
+      
+      // Функция-пингер, которая будет стучаться до победного
+      const wakeUpServer = async () => {
+        try {
+          // Пробуем просто пингануть сервер
+          const response = await fetch(`${API_URL}/ping`);
+          if (response.ok) return true; // Сервер проснулся!
+        } catch (e) {
+          console.log("Сервер еще спит, ждем...", e.messages);
+        }
+        return false;
+      };
+
+      // Цикл: пробуем раз в 3 секунды, пока не получим ответ
+      let isAwake = false;
+      while (!isAwake) {
+        isAwake = await wakeUpServer();
+        if (!isAwake) {
+          // Ждем 3 секунды перед следующей попыткой
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        }
+      }
+
+      // Как только сервер ответил "ok", грузим данные
       try {
         const res = await fetch(`${API_URL}/personalities`);
         const data = await res.json();
         setPersonalities(data);
         
-        // Если база не пуста, автоматически выбираем первого персонажа
         if (data.length > 0) {
           setPersonalityId(data[0].id);
         }
       } catch (e) {
-        console.error("Ошибка пробуждения:", e);
+        console.error("Ошибка загрузки данных после пробуждения:", e);
       } finally {
-        setIsInitialLoading(false); // Убираем надпись "Пробуждаю друзей"
+        setIsInitialLoading(false);
       }
     };
+
     initApp();
-  }, []); 
+  }, []);
 
 
   // ЭФФЕКТ 2: Срабатывает каждый раз, когда меняется личность (клик по кнопке).
