@@ -17,11 +17,27 @@ const Sidebar = ({ isOpen, onClose, personalities, currentId, onSelect, onAdd, o
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={onClose}
           />
-          <motion.div 
-            className="sidebar"
-            initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-          >
+          <motion.div
+  className="sidebar"
+
+  /* Анимация появления / исчезновения */
+  initial={{ x: '100%' }}
+  animate={{ x: 0 }}
+  exit={{ x: '100%' }}
+  transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+
+  /* 🔥 СВАЙП */
+  drag="x"
+  dragDirectionLock
+  dragConstraints={{ left: 0, right: 0 }}
+  dragElastic={0.2}
+  onDragEnd={(e, info) => {
+    if (info.offset.x > 80 || info.velocity.x > 400) {
+      onClose();
+    }
+  }}
+>
+
             <div className="sidebar-header">
               <div className="sidebar-profile">
                 <div className="profile-avatar">G</div>
@@ -64,7 +80,7 @@ const Sidebar = ({ isOpen, onClose, personalities, currentId, onSelect, onAdd, o
                 <Trash2 size={18} />
                 <span>Очистить историю</span>
               </button>
-              <div className="app-version">Vibe Buddy v1.2</div>
+              <div className="app-version">Vibe Buddy v0.22</div>
             </div>
           </motion.div>
         </>
@@ -97,32 +113,45 @@ function App() {
   }
 };
 
-  useEffect(() => {
-    const initApp = async () => {
-      setIsInitialLoading(true);
-      const wakeUpServer = async () => {
-        try {
-          const response = await fetch(`${API_URL}/ping`);
-          return response.ok;
-        } catch { return false; }
-      };
+useEffect(() => {
+  let isMounted = true;
 
-      let isAwake = false;
-      while (!isAwake) {
-        isAwake = await wakeUpServer();
-        if (!isAwake) await new Promise(res => setTimeout(res, 3000));
+  const initApp = async () => {
+    // 1. Неблокирующий ping — просто будим Render
+    fetch(`${API_URL}/ping`).catch(() => {});
+
+    try {
+      // 2. Загружаем данные персонажей
+      const res = await fetch(`${API_URL}/personalities`);
+      if (!res.ok) throw new Error("Failed to load personalities");
+
+      const data = await res.json();
+
+      if (!isMounted) return;
+
+      setPersonalities(data);
+
+      // 3. Выбираем первого персонажа (если есть)
+      if (data.length > 0) {
+        setPersonalityId(data[0].id);
       }
+    } catch (e) {
+      console.error("Ошибка инициализации:", e);
+    } finally {
+      // 4. UI живёт своей жизнью, даже если бек спит
+      if (isMounted) {
+        setIsInitialLoading(false);
+      }
+    }
+  };
 
-      try {
-        const res = await fetch(`${API_URL}/personalities`);
-        const data = await res.json();
-        setPersonalities(data);
-        if (data.length > 0) setPersonalityId(data[0].id);
-      } catch (e) { console.error("Ошибка загрузки:", e); }
-      finally { setIsInitialLoading(false); }
-    };
-    initApp();
-  }, []);
+  initApp();
+
+  // 5. Cleanup — защита от setState после unmount
+  return () => {
+    isMounted = false;
+  };
+}, []);
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -145,32 +174,58 @@ function App() {
   useEffect(() => { scrollToBottom(); }, [messages, isLoading]);
 
   const sendMessage = async () => {
-    if (!input.trim() || isLoading) return;
-    const userMsg = { role: 'user', parts: [input], time: formatTime() };
-    const updatedHistory = [...messages, userMsg];
-    setMessages(updatedHistory);
-    setInput('');
-    setIsLoading(true);
+  if (!input.trim() || isLoading) return;
 
-    try {
-      const res = await fetch(`${API_URL}/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          history: updatedHistory.map(m => ({role: m.role, parts: m.parts})),
-          personality_id: personalityId 
-        })
-      });
-      const data = await res.json();
-      setMessages([...updatedHistory, { 
-        role: 'model', 
-        parts: [data.text],      
-        theme: data.visual_hint,
-        time: formatTime() 
-      }]);
-    } catch (e) { console.error("Ошибка чата:", e); }
-    finally { setIsLoading(false); }
+  // UI должен реагировать сразу
+  const userMsg = {
+    role: 'user',
+    parts: [input],
+    time: formatTime(),
   };
+
+  setMessages(prev => [...prev, userMsg]);
+  setInput('');
+  setIsLoading(true);
+
+  try {
+    const res = await fetch(`${API_URL}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        history: [...messages, userMsg].map(m => ({
+          role: m.role,
+          parts: m.parts,
+        })),
+        personality_id: personalityId ?? undefined,
+      }),
+    });
+
+    const data = await res.json();
+
+    setMessages(prev => [
+      ...prev,
+      {
+        role: 'model',
+        parts: [data.text],
+        theme: data.visual_hint,
+        time: formatTime(),
+      },
+    ]);
+  } catch (e) {
+    console.error(e);
+    setMessages(prev => [
+      ...prev,
+      {
+        role: 'model',
+        parts: ['Бро, я что-то завис 😵'],
+        time: formatTime(),
+      },
+    ]);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   const handleClearUI = () => {
     setMessages([]);
@@ -223,7 +278,7 @@ function App() {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
           placeholder={isInitialLoading ? "Пробуждаю сервер..." : `Напиши ${currentPersona?.name || ''}...`}
-          disabled={isInitialLoading}
+          disabled={isLoading}
         />
         <button className="send-btn" onClick={sendMessage} disabled={isLoading || isInitialLoading}>
           <SendHorizonal size={20} />
