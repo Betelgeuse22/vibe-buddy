@@ -8,8 +8,13 @@ from datetime import datetime
 class Personality(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
-    system_instruction: str  # Тот самый промпт "вайбового друга"
-    visual_style: str        # Hex-код или название темы
+    # Короткое описание для карточки
+    description: str = Field(default="Твой новый бро")
+    system_instruction: str  # Тот самый промпт
+    visual_style: str        # Hex-код (например, #6366f1)
+    avatar: str = Field(default="👤")  # Эмодзи-аватар
+    # Чтобы отличать системных от созданных юзером
+    is_custom: bool = Field(default=True)
 
 # 2. История сообщений
 

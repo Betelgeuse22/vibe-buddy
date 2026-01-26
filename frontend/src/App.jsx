@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Menu, SendHorizonal, Loader2 } from "lucide-react";
 import Sidebar from "./Sidebar";
+import CharacterLab from "./CharacterLab";
 import "./App.css";
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -14,6 +15,11 @@ function App() {
   const [personalities, setPersonalities] = useState([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isLabOpen, setIsLabOpen] = useState(false);
+
+  const handleNewCharacter = (newChar) => {
+    setPersonalities((prev) => [...prev, newChar]);
+  };
 
   const messagesEndRef = useRef(null);
 
@@ -202,9 +208,18 @@ function App() {
         personalities={personalities}
         currentId={personalityId}
         onSelect={(id) => setPersonalityId(id)}
-        onAdd={() => alert("Тут будет создание персонажа!")}
+        // ТУТ ИСПРАВЛЕНИЕ: привязываем открытие Лаборатории к onAdd
+        onAdd={() => {
+          setIsLabOpen(true); // Открываем форму
+          setIsMenuOpen(false); // Закрываем сайдбар, чтобы не мешал
+        }}
         onClear={handleClearUI}
         onLogin={handleGoogleLogin}
+      />
+      <CharacterLab
+        isOpen={isLabOpen}
+        onClose={() => setIsLabOpen(false)}
+        onCharacterCreated={handleNewCharacter}
       />
     </div>
   );

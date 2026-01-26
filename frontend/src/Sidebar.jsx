@@ -1,6 +1,6 @@
 import React from "react";
 import { motion, AnimatePresence, useDragControls } from "framer-motion";
-import { Trash2, Users, Plus, X } from "lucide-react";
+import { Trash2, Users, Plus, X, UserPlus } from "lucide-react";
 
 // Используем SVG иконку Google для кнопки
 const GoogleIcon = () => (
@@ -25,6 +25,7 @@ const GoogleIcon = () => (
 );
 
 const Sidebar = ({
+  onOpenLab,
   isOpen,
   onClose,
   personalities,
@@ -54,15 +55,13 @@ const Sidebar = ({
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
             drag='x'
-            dragControls={controls}
-            dragListener={false}
-            dragConstraints={{ left: 0 }}
-            dragElastic={0.2}
+            /* Убираем dragListener и dragControls */
+            dragConstraints={{ left: 0, right: 300 }} // Разрешаем тянуть только вправо
+            dragElastic={0.1}
+            dragDirectionLock // Блокирует диагональные движения
             onDragEnd={(e, info) => {
-              const swipeDistance = info.offset.x;
-              const swipeVelocity = info.velocity.x;
-
-              if (swipeDistance > 60 || swipeVelocity > 500) {
+              // Если протащили вправо больше чем на 50px или дернули быстро
+              if (info.offset.x > 50 || info.velocity.x > 300) {
                 onClose();
               }
             }}
@@ -95,10 +94,19 @@ const Sidebar = ({
                         onSelect(p.id);
                         onClose();
                       }}
+                      style={p.id === currentId ? { borderColor: p.visual_style } : {}}
                     >
-                      <span className='persona-emoji'>{p.avatar_url || "👤"}</span>
+                      <span className='persona-emoji'>{p.avatar || "👤"}</span>
                       <span className='persona-name'>{p.name}</span>
-                      {p.id === currentId && <div className='active-indicator' />}
+                      {p.id === currentId && (
+                        <div
+                          className='active-indicator'
+                          style={{
+                            background: p.visual_style,
+                            boxShadow: `0 0 8px ${p.visual_style}`,
+                          }}
+                        />
+                      )}
                     </button>
                   ))}
                 </div>

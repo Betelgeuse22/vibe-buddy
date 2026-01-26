@@ -51,6 +51,14 @@ class ChatRequest(BaseModel):
     history: List[ChatMessage]  # Список прошлых сообщений для контекста
     personality_id: int = 1     # Кому именно мы пишем (по умолчанию Максу)
 
+
+class PersonalityCreate(BaseModel):
+    name: str
+    description: str
+    system_instruction: str
+    visual_style: str
+    avatar: str
+
 # --- ЭНДПОИНТЫ (МАРШРУТЫ) ---
 
 # 1. Получить список всех друзей (Макс, Алиса и др.)
@@ -132,3 +140,24 @@ def health_check():
 @app.get("/ping")
 def ping():
     return {"status": "ok"}
+
+
+# 6. Добавление эндпоинта создания
+
+@app.post("/personalities", response_model=Personality)
+def create_personality(data: PersonalityCreate, db: Session = Depends(get_session)):
+    # Создаем объект модели на основе присланных данных
+    new_personality = Personality(
+        name=data.name,
+        description=data.description,
+        system_instruction=data.system_instruction,
+        visual_style=data.visual_style,
+        avatar=data.avatar,
+        is_custom=True  # Помечаем, что это пользовательский персонаж
+    )
+
+    db.add(new_personality)
+    db.commit()      # Сохраняем в Supabase
+    db.refresh(new_personality)  # Получаем созданный ID обратно
+
+    return new_personality

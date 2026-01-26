@@ -223,6 +223,10 @@ header {
   gap: 20px;
   box-shadow: -10px 0 30px rgba(0, 0, 0, 0.3);
   box-sizing: border-box;
+
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .sidebar::before {
@@ -507,3 +511,199 @@ header {
   background: var(--bg-sidebar);
   opacity: 0.5;
 }
+
+
+/* ==========================================================================
+   8. CHARACTER LAB (MODAL)
+   ========================================================================== */
+
+.lab-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+}
+
+.lab-modal {
+  width: 100%;
+  max-width: 420px;
+  background: var(--bg-container);
+  border: 1px solid var(--border-color);
+  border-radius: 28px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  animation: modalAppear 0.3s ease-out;
+}
+
+@keyframes modalAppear {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.lab-header {
+  padding: 20px;
+  background: var(--bg-sidebar);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.lab-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.lab-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.lab-close-btn:hover {
+  color: var(--text-main);
+}
+
+.lab-form {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.lab-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lab-field label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  padding-left: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;;
+}
+
+.lab-field input,
+.lab-field textarea {
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 12px;
+  color: var(--text-main);
+  outline: none;
+  transition: var(--transition);
+  font-family: inherit;
+}
+
+.lab-field input:focus,
+.lab-field textarea:focus {
+  border-color: var(--accent-blue);
+}
+
+.lab-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: end;
+}
+
+.lab-row .lab-field input {
+  width: 100%;
+  height: 45px;
+  box-sizing: border-box;
+}
+
+.color-input {
+  width: 100% !important;
+  /* Растягиваем на всю ширину колонки */
+  height: 45px;
+  padding: 4px !important;
+  cursor: pointer;
+  display: block;
+  /* Убираем инлайновое поведение по умолчанию */
+}
+
+.field-hint {
+  font-size: 0.75rem;
+  margin-top: 4px;
+  transition: var(--transition);
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+.lab-submit-btn {
+  background: var(--accent-blue);
+  color: white;
+  border: none;
+  border-radius: 16px;
+  padding: 16px;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: var(--transition);
+  margin-top: 10px;
+}
+
+.lab-submit-btn:hover {
+  filter: brightness(1.1);
+  transform: translateY(-2px);
+}
+
+.text-center {
+  text-align: center;
+  font-size: 1.2rem;
+}
+
+/* Красный, если мало символов */
+.hint-error {
+  color: #ff453a;
+}
+/* Зеленый, когда норма */
+.hint-success {
+  color: #34c759;
+}
+
+.input-error {
+  border-color: var(--accent-red) !important;
+  box-shadow: 0 0 8px rgba(255, 69, 58, 0.2);
+  animation: shake 0.4s ease-in-out;
+  /* Эффект тряски при ошибке */
+}
+
+@keyframes shake {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(-4px);
+  }
+
+  75% {
+    transform: translateX(4px);
+  }
+}
+
