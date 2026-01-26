@@ -245,6 +245,7 @@ header {
   height: 100%;
   cursor: grab;
   z-index: 1;
+  touch-action: none;
 }
 
 .sidebar-header {

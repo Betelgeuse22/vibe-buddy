@@ -56,7 +56,7 @@ const Sidebar = ({
             drag='x'
             dragControls={controls}
             dragListener={false}
-            dragConstraints={{ left: 0, right: 0 }}
+            dragConstraints={{ left: 0 }}
             dragElastic={0.2}
             onDragEnd={(e, info) => {
               const swipeDistance = info.offset.x;
@@ -67,7 +67,7 @@ const Sidebar = ({
               }
             }}
           >
-            <div className='sidebar-drag-handle' onPointerDown={(e) => controls.start(e)} />
+            <div className='sidebar-drag-handle' onTouchStart={(e) => controls.start(e)} />
             <div className='sidebar-header'>
               <div className='sidebar-auth-section'>
                 <p className='sidebar-section-title'>Аккаунт</p>
@@ -115,7 +115,7 @@ const Sidebar = ({
                 <Trash2 size={18} />
                 <span>Очистить историю</span>
               </button>
-              <div className='app-version'>Vibe Buddy v0.22</div>
+              <div className='app-version'>Vibe Buddy v0.24</div>
             </div>
           </motion.div>
         </>

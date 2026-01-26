@@ -130,7 +130,7 @@ function App() {
         </div>
         <div className='header-center'>
           <h1 className='header-title' style={{ fontWeight: 400, opacity: 0.8 }}>
-            {isInitialLoading ? "..." : currentPersona?.name}
+            {isInitialLoading ? "" : currentPersona?.name}
           </h1>
         </div>
         <div className='header-right'>
@@ -179,11 +179,19 @@ function App() {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-          placeholder={isInitialLoading ? "..." : `Напиши ${currentPersona?.name || ""}...`}
-          disabled={isLoading || isInitialLoading}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !isLoading && !isInitialLoading) {
+              sendMessage();
+            }
+          }}
+          placeholder={`Напиши ${currentPersona?.name || ""}...`}
         />
-        <button className='send-btn' onClick={sendMessage} disabled={isLoading || isInitialLoading}>
+
+        <button
+          className='send-btn'
+          onClick={sendMessage}
+          disabled={isLoading || isInitialLoading || !input.trim()}
+        >
           <SendHorizonal size={20} />
         </button>
       </div>
