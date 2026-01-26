@@ -1,134 +1,158 @@
 import { useState, useEffect, useRef } from 'react'
+// eslint-disable-next-line no-unused-vars
+import { motion, AnimatePresence } from 'framer-motion';
+import { Menu, X, LogIn, UserPlus, Trash2, Users, SendHorizonal, Plus } from 'lucide-react';
 import './App.css'
 
-// URL твоего бэкенда (берется из .env файла)
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL; 
 
+// --- КОМПОНЕНТ SIDEBAR (Вынесен отдельно для чистоты) ---
+const Sidebar = ({ isOpen, onClose, personalities, currentId, onSelect, onAdd, onClear }) => {
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          <motion.div 
+            className="sidebar-overlay"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={onClose}
+          />
+          <motion.div 
+            className="sidebar"
+            initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+          >
+            <div className="sidebar-header">
+              <div className="sidebar-profile">
+                <div className="profile-avatar">G</div>
+                <div className="profile-info">
+                  <span className="profile-name">Гость</span>
+                  <button className="auth-btn"><LogIn size={14} /> Войти</button>
+                </div>
+              </div>
+              <button className="menu-trigger-btn" onClick={onClose}>
+                <X size={24} color="white" />
+              </button>
+            </div>
+
+            <div className="sidebar-content">
+              <div className="sidebar-section">
+                <p className="sidebar-section-title"><Users size={14} /> Твои друзья</p>
+                <div className="personality-list">
+                  {personalities.map((p) => (
+                    <button 
+                      key={p.id} 
+                      className={`personality-item ${p.id === currentId ? 'active' : ''}`}
+                      onClick={() => { onSelect(p.id); onClose(); }}
+                    >
+                      <span className="persona-emoji">{p.avatar_url || '👤'}</span>
+                      <span className="persona-name">{p.name}</span>
+                      {p.id === currentId && <div className="active-indicator" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button className="add-friend-btn" onClick={onAdd}>
+                <Plus size={20} />
+                <span>Создать друга</span>
+              </button>
+            </div>
+
+            <div className="sidebar-footer">
+              <button className="sidebar-btn danger" onClick={onClear}>
+                <Trash2 size={18} />
+                <span>Очистить историю</span>
+              </button>
+              <div className="app-version">Vibe Buddy v1.2</div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+};
+
+// --- ОСНОВНОЙ КОМПОНЕНТ APP ---
 function App() {
-  // --- СОСТОЯНИЯ (STATES) ---
-  const [input, setInput] = useState('');           // Текст, который ты сейчас пишешь в инпуте
-  const [messages, setMessages] = useState([]);     // Массив всех сообщений в текущем чате
-  const [isLoading, setIsLoading] = useState(false); // Правда, если мы ждем ответа от ИИ (для лоадера)
-  const [personalityId, setPersonalityId] = useState(1); // ID выбранного персонажа (1 - Макс, 2 - Алиса)
-  const [personalities, setPersonalities] = useState([]); // Список всех доступных персонажей из базы
-  const [isInitialLoading, setIsInitialLoading] = useState(true); // Правда только при самой первой загрузке (нужно для "будильника" Render)
+  const [input, setInput] = useState('');
+  const [messages, setMessages] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [personalityId, setPersonalityId] = useState(null); 
+  const [personalities, setPersonalities] = useState([]);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isMenuOpen, setIsMenuOpen] = useState(false); 
 
-  // --- ССЫЛКИ (REFS) ---
-  const messagesEndRef = useRef(null); // "Якорь" в конце списка сообщений для авто-скролла
+  const messagesEndRef = useRef(null);
 
-  // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (UTILS) ---
-
-  // Превращает непонятную дату из БД в красивые "12:30"
   const formatTime = (isoString) => {
-    // Если isoString пустой (новое сообщение), берем текущее время
     const date = isoString ? new Date(isoString) : new Date();
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  // Плавно прокручивает чат к самому последнему сообщению
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  const el = messagesEndRef.current;
+  if (el) {
+    el.parentElement.scrollTop = el.parentElement.scrollHeight;
+  }
+};
 
-  // --- ЭФФЕКТЫ (EFFECTS) ---
-
-  // --- ЭФФЕКТ 1: Агрессивное пробуждение и загрузка данных ---
   useEffect(() => {
     const initApp = async () => {
       setIsInitialLoading(true);
-      
-      // Функция-пингер, которая будет стучаться до победного
       const wakeUpServer = async () => {
         try {
-          // Пробуем просто пингануть сервер
           const response = await fetch(`${API_URL}/ping`);
-          if (response.ok) return true; // Сервер проснулся!
-        } catch (e) {
-          console.log("Сервер еще спит, ждем...", e.messages);
-        }
-        return false;
+          return response.ok;
+        } catch { return false; }
       };
 
-      // Цикл: пробуем раз в 3 секунды, пока не получим ответ
       let isAwake = false;
       while (!isAwake) {
         isAwake = await wakeUpServer();
-        if (!isAwake) {
-          // Ждем 3 секунды перед следующей попыткой
-          await new Promise(resolve => setTimeout(resolve, 3000));
-        }
+        if (!isAwake) await new Promise(res => setTimeout(res, 3000));
       }
 
-      // Как только сервер ответил "ok", грузим данные
       try {
         const res = await fetch(`${API_URL}/personalities`);
         const data = await res.json();
         setPersonalities(data);
-        
-        if (data.length > 0) {
-          setPersonalityId(data[0].id);
-        }
-      } catch (e) {
-        console.error("Ошибка загрузки данных после пробуждения:", e);
-      } finally {
-        setIsInitialLoading(false);
-      }
+        if (data.length > 0) setPersonalityId(data[0].id);
+      } catch (e) { console.error("Ошибка загрузки:", e); }
+      finally { setIsInitialLoading(false); }
     };
-
     initApp();
   }, []);
 
-
-  // ЭФФЕКТ 2: Срабатывает каждый раз, когда меняется личность (клик по кнопке).
-  // Его задача — подтянуть историю переписки именно для этого персонажа.
   useEffect(() => {
     const fetchHistory = async () => {
-      // Не идем в базу, пока приложение еще грузится или не выбран ID
       if (isInitialLoading || !personalityId) return;
-
       try {
         const res = await fetch(`${API_URL}/messages?personality_id=${personalityId}`);
         const data = await res.json();
-        
-        // Превращаем формат БД в формат понятный для нашего UI
         const formatted = data.map(msg => ({
           role: msg.role === 'assistant' ? 'model' : msg.role,
           parts: msg.parts,
-          theme: msg.theme, // Цвет границы (визуальный стиль)
+          theme: msg.theme,
           time: formatTime(msg.time)
         }));
         setMessages(formatted);
-      } catch (e) {
-        console.error("Ошибка загрузки истории:", e);
-      }
+      } catch (e) { console.error("Ошибка истории:", e); }
     };
-
     fetchHistory();
   }, [personalityId, isInitialLoading]);
 
+  useEffect(() => { scrollToBottom(); }, [messages, isLoading]);
 
-  // ЭФФЕКТ 3: Следит за списком сообщений.
-  // Как только пришло новое сообщение — прокручивает экран вниз.
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, isLoading]);
-
-
-  // --- ГЛАВНАЯ ЛОГИКА (HANDLERS) ---
-
-  // Функция отправки сообщения
   const sendMessage = async () => {
-    if (!input.trim()) return; // Не отправляем пустоту
-
-    // 1. Сразу добавляем сообщение юзера на экран
+    if (!input.trim() || isLoading) return;
     const userMsg = { role: 'user', parts: [input], time: formatTime() };
     const updatedHistory = [...messages, userMsg];
     setMessages(updatedHistory);
-    setInput(''); // Очищаем поле ввода
-    setIsLoading(true); // Включаем "..." анимацию
+    setInput('');
+    setIsLoading(true);
 
     try {
-      // 2. Стучимся к ИИ на бэкенд
       const res = await fetch(`${API_URL}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -137,89 +161,84 @@ function App() {
           personality_id: personalityId 
         })
       });
-
       const data = await res.json();
-      
-      // 3. Добавляем ответ ИИ на экран
-      const aiMsg = { 
+      setMessages([...updatedHistory, { 
         role: 'model', 
         parts: [data.text],      
         theme: data.visual_hint,
         time: formatTime() 
-      };
-
-      setMessages([...updatedHistory, aiMsg]);
-    } catch (e) {
-      console.error("Ошибка чата:", e);
-    } finally {
-      setIsLoading(false); // Выключаем "..."
-    }
+      }]);
+    } catch (e) { console.error("Ошибка чата:", e); }
+    finally { setIsLoading(false); }
   };
 
-  // Ищем объект текущего персонажа в общем списке по его ID
+  const handleClearUI = () => {
+    setMessages([]);
+    setIsMenuOpen(false);
+  };
+
   const currentPersona = personalities.find(p => p.id === personalityId);
 
-  // --- ОТРИСОВКА (RENDER) ---
   return (
     <div className="chat-container">
-      {/* Шапка приложения */}
       <header>
-        <div className="logo">
-          <h1>Vibe Buddy</h1>
-          <span className="status-dot"></span>
-        </div>
-
-        {/* Секция выбора персонажа */}
-        <div className="personality-selector">
-          {isInitialLoading ? (
-            <span className="loading-text">Пробуждаю друзей... 💤</span>
-          ) : (
-            personalities.map((p) => (
-              <button 
-                key={p.id}
-                className={personalityId === p.id ? 'active' : ''} 
-                onClick={() => setPersonalityId(p.id)}
-              >
-                {p.name}
-              </button>
-            ))
-          )}
-        </div>
-
-        <button onClick={() => setMessages([])} className="reset-btn">Clear UI</button>
-      </header>
-
-      {/* Список сообщений (окно чата) */}
+  <div className="header-left">
+    <div className="pulse-dot" title="В сети"></div>
+  </div>
+  
+  {/* Исправил опечатку: было heread-center -> стало header-center */}
+  <div className="header-center">
+    <h1 className="header-title">
+      {isInitialLoading ? 'Загрузка...' : (currentPersona?.name || 'Vibe Buddy')}
+    </h1>
+  </div>
+  
+  <div className="header-right">
+    <button className="menu-trigger-btn" onClick={() => setIsMenuOpen(true)}>
+      <Menu size={24} />
+    </button>
+  </div>
+</header>
       <div className="messages-list">
+        {messages.length === 0 && !isLoading && (
+          <div className="empty-chat-hint">Начни общение с {currentPersona?.name || 'ИИ'}</div>
+        )}
         {messages.map((msg, index) => (
           <div 
             key={index} 
             className={`message-bubble ${msg.role === 'user' ? 'user' : 'ai'}`}
-            // Сообщению ИИ красим левую границу в цвет темы персонажа
-            style={msg.role === 'model' ? { borderLeft: `4px solid ${msg.theme || '#ccc'}` } : {}}
+            style={msg.role === 'model' ? { borderLeft: `4px solid ${msg.theme || '#e5e5ea'}` } : {}}
           >
             <div className="text-content">{msg.parts[0]}</div>
-            <div className="message-footer">
-              <span className="message-time">{msg.time}</span>
-            </div>
+            <div className="message-footer"><span className="message-time">{msg.time}</span></div>
           </div>
         ))}
-        {/* Индикатор того, что ИИ "думает" */}
         {isLoading && <div className="message-bubble ai loading">...</div>}
-        {/* Пустой див, к которому мы всегда скроллимся */}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Зона ввода сообщения */}
       <div className="input-area">
         <input 
           value={input} 
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-          placeholder={`Напиши ${currentPersona?.name || 'другу'}...`}
+          placeholder={isInitialLoading ? "Пробуждаю сервер..." : `Напиши ${currentPersona?.name || ''}...`}
+          disabled={isInitialLoading}
         />
-        <button className="send-btn" onClick={sendMessage} disabled={isLoading}>🚀</button>
+        <button className="send-btn" onClick={sendMessage} disabled={isLoading || isInitialLoading}>
+          <SendHorizonal size={20} />
+        </button>
       </div>
+       {/* --- ИСПОЛЬЗУЕМ ВЫНЕСЕННЫЙ КОМПОНЕНТ SIDEBAR --- */}
+      <Sidebar 
+        isOpen={isMenuOpen}
+        onClose={() => setIsMenuOpen(false)}
+        personalities={personalities}
+        currentId={personalityId}
+        onSelect={(id) => setPersonalityId(id)}
+        onAdd={() => alert("Тут будет создание персонажа!")}
+        onClear={handleClearUI}
+      />
     </div>
   );
 }
