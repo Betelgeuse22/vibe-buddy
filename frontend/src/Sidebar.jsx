@@ -1,5 +1,5 @@
 import React from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useDragControls } from "framer-motion";
 import { Trash2, Users, Plus, X } from "lucide-react";
 
 // Используем SVG иконку Google для кнопки
@@ -34,6 +34,8 @@ const Sidebar = ({
   onClear,
   onLogin,
 }) => {
+  const controls = useDragControls();
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -52,15 +54,20 @@ const Sidebar = ({
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
             drag='x'
-            dragDirectionLock
+            dragControls={controls}
+            dragListener={false}
             dragConstraints={{ left: 0, right: 0 }}
             dragElastic={0.2}
             onDragEnd={(e, info) => {
-              if (info.offset.x > 80 || info.velocity.x > 400) {
+              const swipeDistance = info.offset.x;
+              const swipeVelocity = info.velocity.x;
+
+              if (swipeDistance > 60 || swipeVelocity > 500) {
                 onClose();
               }
             }}
           >
+            <div className='sidebar-drag-handle' onPointerDown={(e) => controls.start(e)} />
             <div className='sidebar-header'>
               <div className='sidebar-auth-section'>
                 <p className='sidebar-section-title'>Аккаунт</p>
