@@ -3,32 +3,24 @@
    ========================================================================== */
 
 :root {
-  /* Основные цвета фона (Graphite Palette) */
+  /* Основные цвета фона */
   --bg-page: #424246;
-  /* Глубокий черный для заднего плана */
   --bg-container: #1c1c1e;
-  /* Основной графит для окна чата */
   --bg-sidebar: #2c2c2e;
-  /* Светлый графит для меню */
 
   /* Сообщения */
   --bg-ai: #2c2c2e;
-  /* Пузырек ИИ */
   --bg-user: #007aff;
-  /* Пузырек юзера (стандартный синий iOS/Telegram) */
 
   /* Текст */
   --text-main: #f2f2f7;
-  /* Почти белый */
   --text-muted: #8e8e93;
-  /* Серый для подписей и времени */
 
   /* Элементы управления */
   --input-bg: #2c2c2e;
   --border-color: #3a3a3c;
   --accent-blue: #0a84ff;
   --accent-red: #ff453a;
-  /* Для кнопки очистки */
 
   /* Прочее */
   --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -38,12 +30,19 @@
 /* ==========================================================================
    2. БАЗОВЫЕ НАСТРОЙКИ
    ========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: inherit;
+}
+
 html,
 body,
 #root {
   box-sizing: border-box;
-  height: 100%;
   width: 100%;
+  height: 100%;
   margin: 0;
   padding: 0;
   overflow: hidden;
@@ -59,27 +58,12 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-*,
-*::before,
-*::after {
-  box-sizing: inherit;
-}
-
 /* ==========================================================================
    3. ГЛАВНЫЙ КОНТЕЙНЕР ЧАТА
    ========================================================================== */
+
 .chat-container {
-  width: 100%;
-  max-width: 500px;
-  height: 100%;
-  max-height: 85vh;
-  max-height: 85dvh;
-  background: var(--bg-container);
-  border-radius: 28px;
-  border: 1px solid var(--border-color);
-  box-shadow: var(--shadow);
   position: relative;
-  overflow: hidden;
   display: grid;
   grid-template-areas:
     "header"
@@ -87,6 +71,16 @@ body {
     "input";
   grid-template-rows: 70px 1fr 90px;
   grid-template-columns: 100%;
+  width: 100%;
+  max-width: 500px;
+  height: 100%;
+  max-height: 85vh;
+  max-height: 85dvh;
+  background: var(--bg-container);
+  border: 1px solid var(--border-color);
+  border-radius: 28px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
   flex-shrink: 0;
 }
 
@@ -98,6 +92,7 @@ body {
   }
 }
 
+/* Анимация загрузки */
 .spin {
   animation: rotation 1s infinite linear;
 }
@@ -131,16 +126,17 @@ body {
 /* ==========================================================================
    4. ШАПКА (HEADER)
    ========================================================================== */
+
 header {
   grid-area: header;
-  height: 70px;
+  z-index: 10;
   display: grid;
   grid-template-columns: 1fr 2fr 1fr;
   align-items: center;
+  height: 70px;
   padding: 0 20px;
   background: #1c1c1e;
   border-bottom: 1px solid var(--border-color);
-  z-index: 10;
   box-sizing: border-box;
 }
 
@@ -153,6 +149,18 @@ header {
 
 .header-left {
   justify-content: flex-start;
+  transition: var(--transition);
+  user-select: none;
+  cursor: pointer;
+}
+
+.header-left:hover {
+  opacity: 0.7;
+  transform: scale(1.02);
+}
+
+.header-left:active {
+  transform: scale(0.98);
 }
 
 .header-center {
@@ -165,30 +173,30 @@ header {
 }
 
 .header-title {
+  width: 100%;
+  margin: 0;
   font-size: 1.1rem;
   font-weight: 700;
-  color: var(--text-main);
-  letter-spacing: -0.5px;
-  margin: 0;
   line-height: 1.2;
   height: 1.2em;
+  color: var(--text-main);
+  text-align: center;
+  letter-spacing: -0.5px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  width: 100%;
-  text-align: center;
 }
 
 .menu-trigger-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text-main);
-  padding: 6px;
-  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 6px;
+  background: none;
+  border: none;
+  border-radius: 50%;
+  color: var(--text-main);
+  cursor: pointer;
   transition: background 0.2s ease;
 }
 
@@ -199,66 +207,65 @@ header {
 /* ==========================================================================
    5. ВЫЕЗЖАЮЩЕЕ МЕНЮ (SIDEBAR)
    ========================================================================== */
+
 .sidebar-overlay {
   position: absolute;
   top: 0;
   left: 0;
+  z-index: 20;
   width: 100%;
   height: 100%;
   background: rgba(0, 0, 0, 0.6);
-  z-index: 20;
 }
 
 .sidebar {
   position: absolute;
   top: 0;
   right: 0;
-  width: 85%;
-  height: 100%;
-  background: var(--bg-sidebar);
   z-index: 30;
-  padding: 24px;
   display: flex;
   flex-direction: column;
   gap: 20px;
+  width: 85%;
+  height: 100%;
+  padding: 24px;
+  background: var(--bg-sidebar);
   box-shadow: -10px 0 30px rgba(0, 0, 0, 0.3);
   box-sizing: border-box;
-
+  overscroll-behavior-x: none;
   touch-action: pan-y;
   user-select: none;
   -webkit-user-select: none;
 }
 
 .sidebar::before {
-  content: '';
+  content: "";
   position: absolute;
   left: 8px;
   top: 50%;
-  transform: translateY(-50%);
   width: 4px;
   height: 48px;
   background: rgba(255, 255, 255, 0.25);
   border-radius: 4px;
+  transform: translateY(-50%);
 }
 
 .sidebar-drag-handle {
   position: absolute;
-  left: 0;
   top: 0;
+  left: 0;
+  z-index: 1;
   width: 24px;
   height: 100%;
   cursor: grab;
-  z-index: 1;
   touch-action: none;
 }
 
 .sidebar-header {
   position: relative;
-  /* Чтобы кнопка закрытия позиционировалась относительно шапки */
   display: block;
-  /* Убираем flex, чтобы блоки внутри были на всю ширину */
-  margin-bottom: 20px;
   width: 100%;
+  margin-bottom: 20px;
 }
 
 .sidebar-auth-section {
@@ -282,8 +289,8 @@ header {
   font-weight: 600;
   font-size: 0.95rem;
   cursor: pointer;
-  transition: var(--transition);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transition: var(--transition);
   box-sizing: border-box;
 }
 
@@ -292,7 +299,6 @@ header {
   transform: translateY(-1px);
 }
 
-/* Кнопка закрытия в сайдбаре - делаем абсолютной, чтобы она не "съедала" ширину */
 .sidebar-header .menu-trigger-btn {
   position: absolute;
   top: -10px;
@@ -301,14 +307,14 @@ header {
 }
 
 .sidebar-section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
   color: var(--text-muted);
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 1px;
-  margin-bottom: 12px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
 }
 
 .sidebar-content {
@@ -323,12 +329,15 @@ header {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  touch-action: pan-y;
 }
 
 .personality-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
+  width: 100%;
   padding: 14px;
   background: var(--bg-container);
   border: 1px solid var(--border-color);
@@ -336,8 +345,6 @@ header {
   color: white;
   cursor: pointer;
   transition: var(--transition);
-  position: relative;
-  width: 100%;
   box-sizing: border-box;
 }
 
@@ -364,17 +371,17 @@ header {
   padding: 14px;
   background: rgba(10, 132, 255, 0.1);
   border: 1px dashed var(--accent-blue);
-  color: var(--accent-blue);
   border-radius: 14px;
+  color: var(--accent-blue);
+  font-weight: 500;
   cursor: pointer;
   transition: var(--transition);
-  font-weight: 500;
 }
 
 .sidebar-footer {
-  border-top: 1px solid var(--border-color);
-  padding-top: 20px;
   margin-top: auto;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-color);
 }
 
 .sidebar-btn.danger {
@@ -386,8 +393,8 @@ header {
   padding: 14px;
   background: transparent;
   border: 1px solid rgba(255, 69, 58, 0.3);
-  color: var(--accent-red);
   border-radius: 14px;
+  color: var(--accent-red);
   cursor: pointer;
   transition: var(--transition);
 }
@@ -397,28 +404,23 @@ header {
 }
 
 .app-version {
+  margin-top: 16px;
   font-size: 0.7rem;
   color: var(--text-muted);
   text-align: center;
-  margin-top: 16px;
   opacity: 0.5;
 }
 
 /* ==========================================================================
    6. СПИСОК СООБЩЕНИЙ
    ========================================================================== */
+
 .messages-list {
   grid-area: messages;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
   padding: 20px;
-  overflow-y: auto;
-  height: 100%;
-  min-height: 0;
   background: var(--bg-container);
+  overflow-y: auto;
   box-sizing: border-box;
-  scrollbar-gutter: stable;
 }
 
 .messages-list::-webkit-scrollbar {
@@ -430,44 +432,51 @@ header {
   border-radius: 10px;
 }
 
+.chat-sub-container {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+  min-height: min-content;
+}
+
 .message-bubble {
-  max-width: 80%;
-  padding: 10px 14px;
-  border-radius: 18px;
-  font-size: 0.95rem;
-  line-height: 1.4;
+  max-width: 85%;
+  width: fit-content;
+  padding: 12px 16px;
+  border-radius: 20px;
+  line-height: 1.5;
 }
 
 .user {
   align-self: flex-end;
   background: var(--bg-user);
-  color: white;
   border-bottom-right-radius: 4px;
 }
 
 .ai {
   align-self: flex-start;
   background: var(--bg-ai);
-  color: var(--text-main);
   border-bottom-left-radius: 4px;
 }
 
 .message-time {
+  margin-top: 4px;
   font-size: 0.7rem;
   color: var(--text-muted);
-  margin-top: 4px;
   text-align: right;
 }
 
 /* ==========================================================================
    7. ОБЛАСТЬ ВВОДА (INPUT AREA)
    ========================================================================== */
+
 .input-area {
   grid-area: input;
-  height: 90px;
   display: flex;
   align-items: center;
   gap: 12px;
+  height: 90px;
   padding: 0 20px;
   background: #1c1c1e;
   border-top: 1px solid var(--border-color);
@@ -476,10 +485,10 @@ header {
 
 .input-area input {
   flex: 1;
+  padding: 12px 18px;
   background: var(--input-bg);
   border: 1px solid var(--border-color);
   border-radius: 20px;
-  padding: 12px 18px;
   color: var(--text-main);
   outline: none;
   transition: var(--transition);
@@ -494,24 +503,20 @@ header {
   align-items: center;
   justify-content: center;
   width: 44px;
-  /* Фиксированная ширина */
   height: 44px;
-  /* Фиксированная высота */
+  padding: 0;
   background-color: var(--accent-blue);
-  color: white;
-  border-radius: 50%;
   border: none;
+  border-radius: 50%;
+  color: white;
   cursor: pointer;
   flex-shrink: 0;
-  padding: 0;
-  /* Убираем внутренние отступы */
 }
 
 .send-btn:disabled {
   background: var(--bg-sidebar);
   opacity: 0.5;
 }
-
 
 /* ==========================================================================
    8. CHARACTER LAB (MODAL)
@@ -520,13 +525,13 @@ header {
 .lab-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(8px);
+  z-index: 100;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
   padding: 20px;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
 }
 
 .lab-modal {
@@ -553,12 +558,12 @@ header {
 }
 
 .lab-header {
-  padding: 20px;
-  background: var(--bg-sidebar);
-  border-bottom: 1px solid var(--border-color);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 20px;
+  background: var(--bg-sidebar);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .lab-title {
@@ -582,10 +587,10 @@ header {
 }
 
 .lab-form {
-  padding: 24px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  padding: 24px;
 }
 
 .lab-field {
@@ -595,25 +600,25 @@ header {
 }
 
 .lab-field label {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  font-weight: 600;
   padding-left: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;;
+  text-overflow: ellipsis;
 }
 
 .lab-field input,
 .lab-field textarea {
+  padding: 12px;
   background: var(--input-bg);
   border: 1px solid var(--border-color);
   border-radius: 12px;
-  padding: 12px;
   color: var(--text-main);
+  font-family: inherit;
   outline: none;
   transition: var(--transition);
-  font-family: inherit;
 }
 
 .lab-field input:focus,
@@ -635,34 +640,32 @@ header {
 }
 
 .color-input {
+  display: block;
   width: 100% !important;
-  /* Растягиваем на всю ширину колонки */
   height: 45px;
   padding: 4px !important;
   cursor: pointer;
-  display: block;
-  /* Убираем инлайновое поведение по умолчанию */
 }
 
 .field-hint {
-  font-size: 0.75rem;
   margin-top: 4px;
-  transition: var(--transition);
+  font-size: 0.75rem;
   color: var(--text-muted);
   opacity: 0.7;
+  transition: var(--transition);
 }
 
 .lab-submit-btn {
+  margin-top: 10px;
+  padding: 16px;
   background: var(--accent-blue);
-  color: white;
   border: none;
   border-radius: 16px;
-  padding: 16px;
+  color: white;
   font-weight: 700;
   font-size: 1rem;
   cursor: pointer;
   transition: var(--transition);
-  margin-top: 10px;
 }
 
 .lab-submit-btn:hover {
@@ -675,11 +678,10 @@ header {
   font-size: 1.2rem;
 }
 
-/* Красный, если мало символов */
 .hint-error {
   color: #ff453a;
 }
-/* Зеленый, когда норма */
+
 .hint-success {
   color: #34c759;
 }
@@ -688,7 +690,6 @@ header {
   border-color: var(--accent-red) !important;
   box-shadow: 0 0 8px rgba(255, 69, 58, 0.2);
   animation: shake 0.4s ease-in-out;
-  /* Эффект тряски при ошибке */
 }
 
 @keyframes shake {
@@ -707,3 +708,93 @@ header {
   }
 }
 
+/* ==========================================================================
+   9. WELCOME SCREEN
+   ========================================================================== */
+
+.welcome-screen {
+  grid-area: messages;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 40px;
+  background: var(--bg-container);
+  text-align: center;
+}
+
+.welcome-quote {
+  max-width: 200px;
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--text-muted);
+  letter-spacing: -0.2px;
+}
+
+.welcome-logo-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Специфичный селектор для размера логотипа */
+.welcome-logo-area .main-logo-img {
+  display: block;
+  width: 190px !important;
+  height: 190px !important;
+  max-width: none !important;
+  margin-bottom: 20px;
+  object-fit: contain;
+}
+
+.logo-glow {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 15px;
+  filter: drop-shadow(0 0 15px var(--accent-blue));
+}
+
+.logo-text {
+  margin: 8px 0 4px 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-main);
+  letter-spacing: -0.5px;
+  background: none;
+  -webkit-text-fill-color: initial;
+}
+
+.logo-sub {
+  margin: 0 0 32px 0;
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.start-btn {
+  padding: 12px 24px;
+  background: var(--accent-blue);
+  border: none;
+  border-radius: 12px;
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: none;
+  transition: filter 0.2s ease, transform 0.1s ease;
+}
+
+.start-btn:hover {
+  filter: brightness(1.1);
+  transform: none;
+}
+
+.start-btn:active {
+  transform: scale(0.96);
+}

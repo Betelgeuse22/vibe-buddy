@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion"; // Добавил AnimatePresence
 import { Menu, SendHorizonal, Loader2 } from "lucide-react";
 import Sidebar from "./Sidebar";
 import CharacterLab from "./CharacterLab";
+import WelcomeScreen from "./WelcomeScreen"; // Наш новый компонент
 import "./App.css";
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -35,6 +36,7 @@ function App() {
     }
   };
 
+  // 1. ЗАГРУЗКА ПЕРСОНАЖЕЙ (Без авто-выбора первого)
   useEffect(() => {
     let isMounted = true;
     const initApp = async () => {
@@ -45,9 +47,9 @@ function App() {
         const data = await res.json();
         if (!isMounted) return;
         setPersonalities(data);
-        if (data.length > 0) {
-          setPersonalityId(data[0].id);
-        }
+
+        // ВАЖНО: Убрал автоматическую установку personalityId
+        // Теперь по умолчанию personalityId === null
       } catch (e) {
         console.error("Ошибка инициализации:", e);
       } finally {
@@ -62,6 +64,7 @@ function App() {
     };
   }, []);
 
+  // 2. ЗАГРУЗКА ИСТОРИИ (Срабатывает только когда выбран ID)
   useEffect(() => {
     const fetchHistory = async () => {
       if (isInitialLoading || !personalityId) return;
@@ -131,14 +134,23 @@ function App() {
   return (
     <div className='chat-container'>
       <header>
-        <div className='header-left'>
+        <div
+          className='header-left'
+          onClick={() => {
+            setPersonalityId(null);
+            setMessages([]); // Очищаем экран, чтобы подготовить место для нового бро
+          }}
+          style={{ cursor: "pointer" }} // Делаем курсор в виде руки
+        >
           <h1 className='header-title'>VibeBuddy</h1>
         </div>
+
         <div className='header-center'>
           <h1 className='header-title' style={{ fontWeight: 400, opacity: 0.8 }}>
-            {isInitialLoading ? "" : currentPersona?.name}
+            {!isInitialLoading && personalityId ? currentPersona?.name : "Выбери бро"}
           </h1>
         </div>
+
         <div className='header-right'>
           <button className='menu-trigger-btn' onClick={() => setIsMenuOpen(true)}>
             <Menu size={24} />
@@ -147,37 +159,58 @@ function App() {
       </header>
 
       <div className='messages-list'>
-        {isInitialLoading ? (
-          <motion.div className='loader-wrapper' initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <Loader2 className='spin' size={40} />
-            <span className='loader-text'>Пробуждаю друзей...</span>
-          </motion.div>
-        ) : (
-          <>
-            {messages.length === 0 && !isLoading && (
-              <div className='empty-chat-hint'>Начни общение с {currentPersona?.name || "ИИ"}</div>
-            )}
-            {messages.map((msg, index) => (
-              <div
-                key={index}
-                className={`message-bubble ${msg.role === "user" ? "user" : "ai"}`}
-                style={
-                  msg.role === "model" ? { borderLeft: `4px solid ${msg.theme || "#e5e5ea"}` } : {}
-                }
-              >
-                <div className='text-content'>{msg.parts[0]}</div>
-                <div className='message-footer'>
-                  <span className='message-time'>{msg.time}</span>
+        <AnimatePresence mode='wait'>
+          {isInitialLoading ? (
+            <motion.div
+              key='loader'
+              className='loader-wrapper'
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <Loader2 className='spin' size={40} />
+              <span className='loader-text'>Пробуждаю друзей...</span>
+            </motion.div>
+          ) : !personalityId ? (
+            // ЕСЛИ ПЕРСОНАЖ НЕ ВЫБРАН — ПОКАЗЫВАЕМ ЭКРАН ПРИВЕТСТВИЯ
+            <WelcomeScreen key='welcome' onOpenSidebar={() => setIsMenuOpen(true)} />
+          ) : (
+            // ОСНОВНОЙ ЧАТ
+            <motion.div
+              key='chat'
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className='chat-sub-container' // Обертка для корректного скролла
+            >
+              {messages.length === 0 && !isLoading && (
+                <div className='empty-chat-hint'>
+                  Начни общение с {currentPersona?.name || "ИИ"}
                 </div>
-              </div>
-            ))}
-            {isLoading && (
-              <div className='message-bubble ai loading'>
-                <Loader2 size={16} className='spin' />
-              </div>
-            )}
-          </>
-        )}
+              )}
+              {messages.map((msg, index) => (
+                <div
+                  key={index}
+                  className={`message-bubble ${msg.role === "user" ? "user" : "ai"}`}
+                  style={
+                    msg.role === "model"
+                      ? { borderLeft: `4px solid ${msg.theme || "#e5e5ea"}` }
+                      : {}
+                  }
+                >
+                  <div className='text-content'>{msg.parts[0]}</div>
+                  <div className='message-footer'>
+                    <span className='message-time'>{msg.time}</span>
+                  </div>
+                </div>
+              ))}
+              {isLoading && (
+                <div className='message-bubble ai loading'>
+                  <Loader2 size={16} className='spin' />
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
         <div ref={messagesEndRef} />
       </div>
 
@@ -185,18 +218,23 @@ function App() {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          disabled={!personalityId} // Нельзя писать, пока не выбран друг
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !isLoading && !isInitialLoading) {
+            if (e.key === "Enter" && !isLoading && !isInitialLoading && personalityId) {
               sendMessage();
             }
           }}
-          placeholder={`Напиши ${currentPersona?.name || ""}...`}
+          placeholder={
+            personalityId
+              ? `Напиши ${currentPersona?.name || ""}...`
+              : "Сначала выбери друга в меню"
+          }
         />
 
         <button
           className='send-btn'
           onClick={sendMessage}
-          disabled={isLoading || isInitialLoading || !input.trim()}
+          disabled={isLoading || isInitialLoading || !input.trim() || !personalityId}
         >
           <SendHorizonal size={20} />
         </button>
@@ -208,14 +246,14 @@ function App() {
         personalities={personalities}
         currentId={personalityId}
         onSelect={(id) => setPersonalityId(id)}
-        // ТУТ ИСПРАВЛЕНИЕ: привязываем открытие Лаборатории к onAdd
         onAdd={() => {
-          setIsLabOpen(true); // Открываем форму
-          setIsMenuOpen(false); // Закрываем сайдбар, чтобы не мешал
+          setIsLabOpen(true);
+          setIsMenuOpen(false);
         }}
         onClear={handleClearUI}
         onLogin={handleGoogleLogin}
       />
+
       <CharacterLab
         isOpen={isLabOpen}
         onClose={() => setIsLabOpen(false)}

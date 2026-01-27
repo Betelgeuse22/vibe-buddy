@@ -57,11 +57,11 @@ const Sidebar = ({
             drag='x'
             /* Убираем dragListener и dragControls */
             dragConstraints={{ left: 0, right: 300 }} // Разрешаем тянуть только вправо
-            dragElastic={0.1}
+            dragElastic={0.05}
             dragDirectionLock // Блокирует диагональные движения
             onDragEnd={(e, info) => {
               // Если протащили вправо больше чем на 50px или дернули быстро
-              if (info.offset.x > 50 || info.velocity.x > 300) {
+              if (info.offset.x > 80 || info.velocity.x > 400) {
                 onClose();
               }
             }}
