@@ -22,6 +22,35 @@ function App() {
     setPersonalities((prev) => [...prev, newChar]);
   };
 
+  const handleDeletePersona = async (id) => {
+    if (window.confirm("Бро, ты уверен? Этот персонаж и вся переписка исчезнут навсегда!")) {
+      try {
+        const response = await fetch(`${API_URL}/personalities/${id}`, { method: "DELETE" });
+        if (response.ok) {
+          setPersonalities((prev) => prev.filter((p) => p.id !== id));
+          if (personalityId === id) setPersonalityId(null);
+        }
+      } catch (e) {
+        console.error("Ошибка при удалении бро:", e);
+      }
+    }
+  };
+
+  const handleClearHistory = async (id) => {
+    if (window.confirm("Очистить всю историю сообщений с этим персонажем?")) {
+      try {
+        const response = await fetch(`${API_URL}/messages?personality_id=${id}`, {
+          method: "DELETE",
+        });
+        if (response.ok) {
+          if (personalityId === id) setMessages([]);
+        }
+      } catch (e) {
+        console.error("Ошибка при очистке истории:", e);
+      }
+    }
+  };
+
   const messagesEndRef = useRef(null);
 
   const formatTime = (isoString) => {
@@ -89,6 +118,27 @@ function App() {
     scrollToBottom();
   }, [messages, isLoading]);
 
+  useEffect(() => {
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+
+      // Безопасная установка цветов (только если поддерживается)
+      try {
+        if (tg.isVersionAtLeast("6.1")) {
+          tg.setHeaderColor("secondary_bg_color");
+          tg.setBackgroundColor("#1c1c1e");
+        } else {
+          // Фоллбек для версии 6.0 — используем только стандартные ключи
+          tg.setHeaderColor("bg_color");
+        }
+      } catch (e) {
+        console.warn("Telegram Theme API недоступно", e);
+      }
+    }
+  }, []);
+
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
     const userMsg = { role: "user", parts: [input], time: formatTime() };
@@ -147,7 +197,7 @@ function App() {
 
         <div className='header-center'>
           <h1 className='header-title' style={{ fontWeight: 400, opacity: 0.8 }}>
-            {!isInitialLoading && personalityId ? currentPersona?.name : "Выбери бро"}
+            {!isInitialLoading && personalityId ? currentPersona?.name : ""}
           </h1>
         </div>
 
@@ -160,27 +210,21 @@ function App() {
 
       <div className='messages-list'>
         <AnimatePresence mode='wait'>
-          {isInitialLoading ? (
-            <motion.div
-              key='loader'
-              className='loader-wrapper'
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              <Loader2 className='spin' size={40} />
-              <span className='loader-text'>Пробуждаю друзей...</span>
-            </motion.div>
-          ) : !personalityId ? (
-            // ЕСЛИ ПЕРСОНАЖ НЕ ВЫБРАН — ПОКАЗЫВАЕМ ЭКРАН ПРИВЕТСТВИЯ
-            <WelcomeScreen key='welcome' onOpenSidebar={() => setIsMenuOpen(true)} />
+          {/* Если персонаж не выбран — СРАЗУ показываем WelcomeScreen */}
+          {!personalityId ? (
+            <WelcomeScreen
+              key='welcome'
+              // Передаем статус загрузки в WelcomeScreen, если захотим там показать доп. лоадер
+              isLoading={isInitialLoading}
+              onOpenSidebar={() => setIsMenuOpen(true)}
+            />
           ) : (
-            // ОСНОВНОЙ ЧАТ
+            // ОСНОВНОЙ ЧАТ (показывается только когда выбрали ID)
             <motion.div
               key='chat'
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className='chat-sub-container' // Обертка для корректного скролла
+              className='chat-sub-container'
             >
               {messages.length === 0 && !isLoading && (
                 <div className='empty-chat-hint'>
@@ -251,6 +295,8 @@ function App() {
           setIsMenuOpen(false);
         }}
         onClear={handleClearUI}
+        onDeletePersona={handleDeletePersona}
+        onClearHistory={handleClearHistory}
         onLogin={handleGoogleLogin}
       />
 

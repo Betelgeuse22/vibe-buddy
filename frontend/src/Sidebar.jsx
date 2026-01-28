@@ -1,8 +1,8 @@
-import React from "react";
+import React, { useState } from "react"; // Добавили useState
 import { motion, AnimatePresence, useDragControls } from "framer-motion";
-import { Trash2, Users, Plus, X, UserPlus } from "lucide-react";
+import { Trash2, Users, Plus, X, MoreVertical, Eraser } from "lucide-react"; // Новые иконки
 
-// Используем SVG иконку Google для кнопки
+// SVG иконка Google остается без изменений
 const GoogleIcon = () => (
   <svg width='18' height='18' viewBox='0 0 18 18' xmlns='http://www.w3.org/2000/svg'>
     <path
@@ -32,10 +32,18 @@ const Sidebar = ({
   currentId,
   onSelect,
   onAdd,
-  onClear,
+  onDeletePersona, // Новое: удаление персонажа
+  onClearHistory, // Новое: очистка истории конкретного бро
   onLogin,
 }) => {
   const controls = useDragControls();
+  const [activeMenu, setActiveMenu] = useState(null); // Храним ID персонажа, у которого открыто меню
+
+  // Закрываем меню при клике на действие
+  const handleAction = (callback, id) => {
+    callback(id);
+    setActiveMenu(null);
+  };
 
   return (
     <AnimatePresence>
@@ -55,18 +63,14 @@ const Sidebar = ({
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
             drag='x'
-            /* Убираем dragListener и dragControls */
-            dragConstraints={{ left: 0, right: 300 }} // Разрешаем тянуть только вправо
+            dragConstraints={{ left: 0, right: 300 }}
             dragElastic={0.05}
-            dragDirectionLock // Блокирует диагональные движения
             onDragEnd={(e, info) => {
-              // Если протащили вправо больше чем на 50px или дернули быстро
-              if (info.offset.x > 80 || info.velocity.x > 400) {
-                onClose();
-              }
+              if (info.offset.x > 80 || info.velocity.x > 400) onClose();
             }}
           >
             <div className='sidebar-drag-handle' onTouchStart={(e) => controls.start(e)} />
+
             <div className='sidebar-header'>
               <div className='sidebar-auth-section'>
                 <p className='sidebar-section-title'>Аккаунт</p>
@@ -87,27 +91,81 @@ const Sidebar = ({
                 </p>
                 <div className='personality-list'>
                   {personalities.map((p) => (
-                    <button
-                      key={p.id}
-                      className={`personality-item ${p.id === currentId ? "active" : ""}`}
-                      onClick={() => {
-                        onSelect(p.id);
-                        onClose();
-                      }}
-                      style={p.id === currentId ? { borderColor: p.visual_style } : {}}
-                    >
-                      <span className='persona-emoji'>{p.avatar || "👤"}</span>
-                      <span className='persona-name'>{p.name}</span>
-                      {p.id === currentId && (
-                        <div
-                          className='active-indicator'
-                          style={{
-                            background: p.visual_style,
-                            boxShadow: `0 0 8px ${p.visual_style}`,
+                    <div key={p.id} className='personality-item-wrapper'>
+                      <button
+                        className={`personality-item ${p.id === currentId ? "active" : ""}`}
+                        onClick={() => {
+                          onSelect(p.id);
+                          onClose();
+                        }}
+                        style={p.id === currentId ? { borderColor: p.visual_style } : {}}
+                      >
+                        <span className='persona-emoji'>{p.avatar || "👤"}</span>
+                        <span className='persona-name'>{p.name}</span>
+                        {p.id === currentId && (
+                          <div
+                            className='active-indicator'
+                            style={{
+                              background: p.visual_style,
+                              boxShadow: `0 0 8px ${p.visual_style}`,
+                            }}
+                          />
+                        )}
+                      </button>
+
+                      {/* КОНТЕКСТНОЕ МЕНЮ (КАК НА СКРИНШОТЕ) */}
+                      <div className='persona-menu-container'>
+                        <button
+                          className={`persona-more-btn ${activeMenu === p.id ? "active" : ""}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveMenu(activeMenu === p.id ? null : p.id);
                           }}
-                        />
-                      )}
-                    </button>
+                        >
+                          <MoreVertical size={18} />
+                        </button>
+
+                        <AnimatePresence>
+                          {activeMenu === p.id && (
+                            <>
+                              {/* НЕВИДИМАЯ ПОДЛОЖКА ДЛЯ ЗАКРЫТИЯ ПО ТАПУ ВНЕ МЕНЮ */}
+                              <motion.div
+                                className='menu-close-overlay'
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                onClick={() => setActiveMenu(null)}
+                              />
+
+                              <motion.div
+                                className='persona-dropdown'
+                                initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                transition={{ duration: 0.15 }}
+                              >
+                                {p.is_custom && (
+                                  <button
+                                    onClick={() => handleAction(onDeletePersona, p.id)}
+                                    className='dropdown-item danger'
+                                  >
+                                    <Trash2 size={16} />
+                                    <span>Удалить</span>
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => handleAction(onClearHistory, p.id)}
+                                  className='dropdown-item'
+                                >
+                                  <Eraser size={16} />
+                                  <span>Очистить историю</span>
+                                </button>
+                              </motion.div>
+                            </>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -119,10 +177,6 @@ const Sidebar = ({
             </div>
 
             <div className='sidebar-footer'>
-              <button className='sidebar-btn danger' onClick={onClear}>
-                <Trash2 size={18} />
-                <span>Очистить историю</span>
-              </button>
               <div className='app-version'>Vibe Buddy v0.24</div>
             </div>
           </motion.div>
