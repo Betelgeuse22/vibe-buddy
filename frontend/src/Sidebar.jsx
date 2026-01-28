@@ -1,8 +1,7 @@
-import React, { useState } from "react"; // Добавили useState
+import React, { useState } from "react";
 import { motion, AnimatePresence, useDragControls } from "framer-motion";
-import { Trash2, Users, Plus, X, MoreVertical, Eraser } from "lucide-react"; // Новые иконки
+import { Trash2, Users, Plus, X, MoreVertical, Paintbrush } from "lucide-react";
 
-// SVG иконка Google остается без изменений
 const GoogleIcon = () => (
   <svg width='18' height='18' viewBox='0 0 18 18' xmlns='http://www.w3.org/2000/svg'>
     <path
@@ -25,21 +24,19 @@ const GoogleIcon = () => (
 );
 
 const Sidebar = ({
-  onOpenLab,
   isOpen,
   onClose,
   personalities,
   currentId,
   onSelect,
   onAdd,
-  onDeletePersona, // Новое: удаление персонажа
-  onClearHistory, // Новое: очистка истории конкретного бро
+  onDeletePersona,
+  onClearHistory,
   onLogin,
 }) => {
   const controls = useDragControls();
-  const [activeMenu, setActiveMenu] = useState(null); // Храним ID персонажа, у которого открыто меню
+  const [activeMenu, setActiveMenu] = useState(null);
 
-  // Закрываем меню при клике на действие
   const handleAction = (callback, id) => {
     callback(id);
     setActiveMenu(null);
@@ -91,14 +88,18 @@ const Sidebar = ({
                 </p>
                 <div className='personality-list'>
                   {personalities.map((p) => (
-                    <div key={p.id} className='personality-item-wrapper'>
-                      <button
-                        className={`personality-item ${p.id === currentId ? "active" : ""}`}
+                    <div
+                      key={p.id}
+                      className={`personality-item ${p.id === currentId ? "active" : ""}`}
+                      style={p.id === currentId ? { borderColor: p.visual_style } : {}}
+                    >
+                      {/* ЛЕВАЯ ЧАСТЬ: Зона клика для выбора персонажа */}
+                      <div
+                        className='personality-clickable-area'
                         onClick={() => {
                           onSelect(p.id);
                           onClose();
                         }}
-                        style={p.id === currentId ? { borderColor: p.visual_style } : {}}
                       >
                         <span className='persona-emoji'>{p.avatar || "👤"}</span>
                         <span className='persona-name'>{p.name}</span>
@@ -111,9 +112,9 @@ const Sidebar = ({
                             }}
                           />
                         )}
-                      </button>
+                      </div>
 
-                      {/* КОНТЕКСТНОЕ МЕНЮ (КАК НА СКРИНШОТЕ) */}
+                      {/* ПРАВАЯ ЧАСТЬ: Кнопка меню внутри плашки */}
                       <div className='persona-menu-container'>
                         <button
                           className={`persona-more-btn ${activeMenu === p.id ? "active" : ""}`}
@@ -128,7 +129,6 @@ const Sidebar = ({
                         <AnimatePresence>
                           {activeMenu === p.id && (
                             <>
-                              {/* НЕВИДИМАЯ ПОДЛОЖКА ДЛЯ ЗАКРЫТИЯ ПО ТАПУ ВНЕ МЕНЮ */}
                               <motion.div
                                 className='menu-close-overlay'
                                 initial={{ opacity: 0 }}
@@ -136,7 +136,6 @@ const Sidebar = ({
                                 exit={{ opacity: 0 }}
                                 onClick={() => setActiveMenu(null)}
                               />
-
                               <motion.div
                                 className='persona-dropdown'
                                 initial={{ opacity: 0, scale: 0.95, y: -10 }}
@@ -157,7 +156,7 @@ const Sidebar = ({
                                   onClick={() => handleAction(onClearHistory, p.id)}
                                   className='dropdown-item'
                                 >
-                                  <Eraser size={16} />
+                                  <Paintbrush size={16} />
                                   <span>Очистить историю</span>
                                 </button>
                               </motion.div>
@@ -177,7 +176,7 @@ const Sidebar = ({
             </div>
 
             <div className='sidebar-footer'>
-              <div className='app-version'>Vibe Buddy v0.24</div>
+              <div className='app-version'>Vibe Buddy v0.26</div>
             </div>
           </motion.div>
         </>

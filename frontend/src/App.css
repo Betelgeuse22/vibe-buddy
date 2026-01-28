@@ -43,9 +43,11 @@ body,
   box-sizing: border-box;
   width: 100%;
   height: 100%;
+  height: -webkit-fill-available;
   margin: 0;
   padding: 0;
   overflow: hidden;
+  position: fixed;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -76,6 +78,7 @@ body {
   height: 100%;
   height: 100dvh;
   height: var(--tg-viewport-height, 100dvh);
+  max-height: 100svh;
   min-height: var(--tg-viewport-height, 100dvh);
   background: var(--bg-container);
   border: 1px solid var(--border-color);
@@ -334,24 +337,31 @@ header {
 }
 
 .personality-item {
-  position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 14px;
+  justify-content: space-between;
+  padding: 0 12px;
   background: var(--bg-container);
   border: 1px solid var(--border-color);
   border-radius: 14px;
-  color: white;
-  cursor: pointer;
+  min-height: 56px;
   transition: var(--transition);
-  box-sizing: border-box;
+  position: relative;
 }
 
 .personality-item.active {
   background: #3a3a3c;
   border-color: var(--accent-blue);
+}
+
+.personality-clickable-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  height: 100%;
+  padding: 14px 0;
+  cursor: pointer;
 }
 
 .active-indicator {
@@ -447,7 +457,6 @@ header {
   position: fixed;
   inset: 0;
   z-index: 45;
-  /* Чуть ниже самого меню */
   background: transparent;
 }
 
@@ -460,14 +469,14 @@ header {
   border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 4px;
-  /* Уменьшаем ширину и запрещаем перенос текста */
-  min-width: 160px;
   width: max-content;
+  min-width: 160px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   margin-top: 4px;
 }
 
 .dropdown-item {
+  white-space: nowrap;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -478,10 +487,7 @@ header {
   border-radius: 8px;
   color: var(--text-main);
   font-size: 0.85rem;
-  /* Чуть меньше шрифт для компактности */
   cursor: pointer;
-  /* ГЛАВНОЕ: Текст всегда в одну строку */
-  white-space: nowrap;
 }
 
 .dropdown-item:hover {

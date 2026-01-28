@@ -132,7 +132,7 @@ const CharacterLab = ({ isOpen, onClose, onCharacterCreated }) => {
             />
             <span className={`field-hint ${remaining > 0 ? "hint-error" : "hint-success"}`}>
               {remaining > 0
-                ? `Нужно еще ${remaining} симв. для крутого вайба`
+                ? `Нужно еще минимум ${remaining} симв. для крутого вайба`
                 : "Вайб настроен! ✨"}
             </span>
           </div>
