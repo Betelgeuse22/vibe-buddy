@@ -1,12 +1,27 @@
 import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion"; // Добавил AnimatePresence
-import { Menu, SendHorizonal, Loader2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Menu, SendHorizonal, Loader2, X as CloseIcon } from "lucide-react";
 import Sidebar from "./Sidebar";
 import CharacterLab from "./CharacterLab";
-import WelcomeScreen from "./WelcomeScreen"; // Наш новый компонент
+import WelcomeScreen from "./WelcomeScreen";
 import "./App.css";
 
 const API_URL = import.meta.env.VITE_API_URL;
+
+// Компонент уведомления (Toast)
+const Toast = ({ message, type, onClose }) => (
+  <motion.div
+    initial={{ y: 50, opacity: 0, x: "-50%" }}
+    animate={{ y: 0, opacity: 1, x: "-50%" }}
+    exit={{ y: 50, opacity: 0, x: "-50%" }}
+    className={`toast toast-${type}`}
+  >
+    <span>{message}</span>
+    <button onClick={onClose}>
+      <CloseIcon size={14} />
+    </button>
+  </motion.div>
+);
 
 function App() {
   const [input, setInput] = useState("");
@@ -17,9 +32,25 @@ function App() {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLabOpen, setIsLabOpen] = useState(false);
+  const [toast, setToast] = useState(null);
+
+  const messagesEndRef = useRef(null);
+
+  // Утилита для показа тоста
+  const showToast = (message, type = "success") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  // --- ФУНКЦИИ ОБРАБОТКИ ---
+
+  const handleGoogleLogin = () => {
+    showToast("Скоро: Авторизация через Google", "success");
+  };
 
   const handleNewCharacter = (newChar) => {
     setPersonalities((prev) => [...prev, newChar]);
+    showToast("Новый бро создан! ✨");
   };
 
   const handleDeletePersona = async (id) => {
@@ -29,6 +60,7 @@ function App() {
         if (response.ok) {
           setPersonalities((prev) => prev.filter((p) => p.id !== id));
           if (personalityId === id) setPersonalityId(null);
+          showToast("Персонаж удален", "danger");
         }
       } catch (e) {
         console.error("Ошибка при удалении бро:", e);
@@ -44,6 +76,7 @@ function App() {
         });
         if (response.ok) {
           if (personalityId === id) setMessages([]);
+          showToast("История очищена 🧹");
         }
       } catch (e) {
         console.error("Ошибка при очистке истории:", e);
@@ -51,7 +84,14 @@ function App() {
     }
   };
 
-  const messagesEndRef = useRef(null);
+  // Универсальная функция получения аватарки
+  const getAvatarUrl = (avatarStr, name) => {
+    if (avatarStr?.includes(":")) {
+      const [style, seed] = avatarStr.split(":");
+      return `https://api.dicebear.com/9.x/${style}/svg?seed=${seed}`;
+    }
+    return `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(name || "default")}`;
+  };
 
   const formatTime = (isoString) => {
     const date = isoString ? new Date(isoString) : new Date();
@@ -60,31 +100,23 @@ function App() {
 
   const scrollToBottom = () => {
     const el = messagesEndRef.current;
-    if (el) {
-      el.parentElement.scrollTop = el.parentElement.scrollHeight;
-    }
+    if (el) el.parentElement.scrollTop = el.parentElement.scrollHeight;
   };
 
-  // 1. ЗАГРУЗКА ПЕРСОНАЖЕЙ (Без авто-выбора первого)
+  // --- ЭФФЕКТЫ ---
+
   useEffect(() => {
     let isMounted = true;
     const initApp = async () => {
       fetch(`${API_URL}/ping`).catch(() => {});
       try {
         const res = await fetch(`${API_URL}/personalities`);
-        if (!res.ok) throw new Error("Failed to load personalities");
         const data = await res.json();
-        if (!isMounted) return;
-        setPersonalities(data);
-
-        // ВАЖНО: Убрал автоматическую установку personalityId
-        // Теперь по умолчанию personalityId === null
+        if (isMounted) setPersonalities(data);
       } catch (e) {
-        console.error("Ошибка инициализации:", e);
+        console.error(e);
       } finally {
-        if (isMounted) {
-          setIsInitialLoading(false);
-        }
+        if (isMounted) setIsInitialLoading(false);
       }
     };
     initApp();
@@ -93,22 +125,22 @@ function App() {
     };
   }, []);
 
-  // 2. ЗАГРУЗКА ИСТОРИИ (Срабатывает только когда выбран ID)
   useEffect(() => {
     const fetchHistory = async () => {
       if (isInitialLoading || !personalityId) return;
       try {
         const res = await fetch(`${API_URL}/messages?personality_id=${personalityId}`);
         const data = await res.json();
-        const formatted = data.map((msg) => ({
-          role: msg.role === "assistant" ? "model" : msg.role,
-          parts: msg.parts,
-          theme: msg.theme,
-          time: formatTime(msg.time),
-        }));
-        setMessages(formatted);
+        setMessages(
+          data.map((msg) => ({
+            role: msg.role === "assistant" ? "model" : msg.role,
+            parts: msg.parts,
+            theme: msg.theme,
+            time: formatTime(msg.time),
+          })),
+        );
       } catch (e) {
-        console.error("Ошибка истории:", e);
+        console.error(e);
       }
     };
     fetchHistory();
@@ -119,24 +151,12 @@ function App() {
   }, [messages, isLoading]);
 
   useEffect(() => {
-    const tg = window.Telegram?.WebApp;
-    if (tg) {
-      tg.ready();
-      tg.expand();
-
-      // Безопасная установка цветов (только если поддерживается)
-      try {
-        if (tg.isVersionAtLeast("6.1")) {
-          tg.setHeaderColor("secondary_bg_color");
-          tg.setBackgroundColor("#1c1c1e");
-        } else {
-          // Фоллбек для версии 6.0 — используем только стандартные ключи
-          tg.setHeaderColor("bg_color");
-        }
-      } catch (e) {
-        console.warn("Telegram Theme API недоступно", e);
-      }
-    }
+    const setVh = () => {
+      document.documentElement.style.setProperty("--vh", `${window.innerHeight * 0.01}px`);
+    };
+    setVh();
+    window.addEventListener("resize", setVh);
+    return () => window.removeEventListener("resize", setVh);
   }, []);
 
   const sendMessage = async () => {
@@ -160,45 +180,50 @@ function App() {
         { role: "model", parts: [data.text], theme: data.visual_hint, time: formatTime() },
       ]);
     } catch (e) {
-      console.error(e);
       setMessages((prev) => [
         ...prev,
-        { role: "model", parts: ["Бро, я что-то завис 😵"], time: formatTime() },
+        { role: "model", parts: ["Ошибка связи 😵"], time: formatTime() },
       ]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleClearUI = () => {
-    setMessages([]);
-    setIsMenuOpen(false);
-  };
-
-  const handleGoogleLogin = () => {
-    alert("Скоро: Авторизация через Google");
-  };
-
   const currentPersona = personalities.find((p) => p.id === personalityId);
 
   return (
-    <div className='chat-container'>
+    <div className='chat-container' style={{ height: "calc(var(--vh, 1vh) * 100)" }}>
       <header>
         <div
           className='header-left'
           onClick={() => {
             setPersonalityId(null);
-            setMessages([]); // Очищаем экран, чтобы подготовить место для нового бро
+            setMessages([]);
           }}
-          style={{ cursor: "pointer" }} // Делаем курсор в виде руки
+          style={{ cursor: "pointer" }}
         >
           <h1 className='header-title'>VibeBuddy</h1>
         </div>
 
         <div className='header-center'>
-          <h1 className='header-title' style={{ fontWeight: 400, opacity: 0.8 }}>
-            {!isInitialLoading && personalityId ? currentPersona?.name : ""}
-          </h1>
+          <AnimatePresence mode='wait'>
+            {personalityId && (
+              <motion.div
+                key={personalityId}
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                className='header-persona-info'
+              >
+                <img
+                  src={getAvatarUrl(currentPersona?.avatar, currentPersona?.name)}
+                  className='header-avatar-mini'
+                  alt=''
+                />
+                <span className='header-persona-name'>{currentPersona?.name}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         <div className='header-right'>
@@ -210,16 +235,13 @@ function App() {
 
       <div className='messages-list'>
         <AnimatePresence mode='wait'>
-          {/* Если персонаж не выбран — СРАЗУ показываем WelcomeScreen */}
           {!personalityId ? (
             <WelcomeScreen
               key='welcome'
-              // Передаем статус загрузки в WelcomeScreen, если захотим там показать доп. лоадер
               isLoading={isInitialLoading}
               onOpenSidebar={() => setIsMenuOpen(true)}
             />
           ) : (
-            // ОСНОВНОЙ ЧАТ (показывается только когда выбрали ID)
             <motion.div
               key='chat'
               initial={{ opacity: 0 }}
@@ -227,30 +249,39 @@ function App() {
               className='chat-sub-container'
             >
               {messages.length === 0 && !isLoading && (
-                <div className='empty-chat-hint'>
-                  Начни общение с {currentPersona?.name || "ИИ"}
-                </div>
+                <div className='empty-chat-hint'>Начни общение с {currentPersona?.name}</div>
               )}
-              {messages.map((msg, index) => (
-                <div
-                  key={index}
-                  className={`message-bubble ${msg.role === "user" ? "user" : "ai"}`}
-                  style={
-                    msg.role === "model"
-                      ? { borderLeft: `4px solid ${msg.theme || "#e5e5ea"}` }
-                      : {}
-                  }
-                >
-                  <div className='text-content'>{msg.parts[0]}</div>
-                  <div className='message-footer'>
-                    <span className='message-time'>{msg.time}</span>
-                  </div>
-                </div>
-              ))}
+
+              <AnimatePresence initial={false}>
+                {messages.map((msg, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                    className={`message-bubble ${msg.role === "user" ? "user" : "ai"}`}
+                    style={
+                      msg.role === "model"
+                        ? { borderLeft: `4px solid ${msg.theme || "#0a84ff"}` }
+                        : {}
+                    }
+                  >
+                    <div className='text-content'>{msg.parts[0]}</div>
+                    <div className='message-footer'>
+                      <span className='message-time'>{msg.time}</span>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+
               {isLoading && (
-                <div className='message-bubble ai loading'>
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className='message-bubble ai loading'
+                >
                   <Loader2 size={16} className='spin' />
-                </div>
+                </motion.div>
               )}
             </motion.div>
           )}
@@ -262,23 +293,14 @@ function App() {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          disabled={!personalityId} // Нельзя писать, пока не выбран друг
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !isLoading && !isInitialLoading && personalityId) {
-              sendMessage();
-            }
-          }}
-          placeholder={
-            personalityId
-              ? `Напиши ${currentPersona?.name || ""}...`
-              : "Сначала выбери друга в меню"
-          }
+          disabled={!personalityId}
+          onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+          placeholder={personalityId ? `Напиши ${currentPersona?.name}...` : "Выбери друга в меню"}
         />
-
         <button
           className='send-btn'
           onClick={sendMessage}
-          disabled={isLoading || isInitialLoading || !input.trim() || !personalityId}
+          disabled={isLoading || !input.trim() || !personalityId}
         >
           <SendHorizonal size={20} />
         </button>
@@ -294,10 +316,10 @@ function App() {
           setIsLabOpen(true);
           setIsMenuOpen(false);
         }}
-        onClear={handleClearUI}
         onDeletePersona={handleDeletePersona}
         onClearHistory={handleClearHistory}
         onLogin={handleGoogleLogin}
+        getAvatarUrl={getAvatarUrl}
       />
 
       <CharacterLab
@@ -305,6 +327,12 @@ function App() {
         onClose={() => setIsLabOpen(false)}
         onCharacterCreated={handleNewCharacter}
       />
+
+      <AnimatePresence>
+        {toast && (
+          <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

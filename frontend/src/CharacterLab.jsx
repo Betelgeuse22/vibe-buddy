@@ -1,39 +1,55 @@
 import React, { useState } from "react";
-import { X, Sparkles } from "lucide-react";
+import { X, Sparkles, RefreshCw, ChevronDown } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const CharacterLab = ({ isOpen, onClose, onCharacterCreated }) => {
+  const avatarStyles = [
+    { id: "avataaars", name: "Avataaars" },
+    { id: "lorelei", name: "Lorelei" },
+    { id: "notionists", name: "Notionists" },
+    { id: "open-peeps", name: "Open Peeps" },
+    { id: "personas", name: "Personas" },
+    { id: "bottts", name: "Bottts" },
+    { id: "micah", name: "Micah" },
+    { id: "pixel-art", name: "Pixel Art" },
+  ];
+
+  const generateRandomSeed = () => Math.random().toString(36).substring(7);
+
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     system_instruction: "",
     visual_style: "#0a84ff",
-    avatar: "🤖",
+    avatar: `avataaars:${generateRandomSeed()}`,
   });
 
-  // 1. Считаем символы для подсказки
-  const minLength = 50;
-  const currentLength = formData.system_instruction.length;
-  const remaining = minLength - currentLength;
-
-  // Состояние: нажимал ли пользователь кнопку "Создать"
+  const [isStyleOpen, setIsStyleOpen] = useState(false);
+  const [style, seed] = formData.avatar.split(":");
   const [showErrors, setShowErrors] = useState(false);
 
-  // Валидация отдельных полей
+  // Валидация
   const isNameValid = formData.name.trim().length > 0;
   const isDescValid = formData.description.trim().length > 0;
-  const isAvatarValid = formData.avatar.trim().length > 0;
   const isSystemValid = formData.system_instruction.trim().length >= 50;
+  const isFormValid = isNameValid && isDescValid && isSystemValid;
 
-  const isFormValid = isNameValid && isDescValid && isAvatarValid && isSystemValid;
+  const remaining = 50 - formData.system_instruction.length;
+
+  const handleRandomize = () => {
+    setFormData({ ...formData, avatar: `${style}:${generateRandomSeed()}` });
+  };
+
+  const handleStyleChange = (newStyle) => {
+    setFormData({ ...formData, avatar: `${newStyle}:${seed}` });
+    setIsStyleOpen(false);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setShowErrors(true); // Включаем отображение ошибок при попытке отправки
+    setShowErrors(true);
 
-    // Если хотя бы одно поле не проходит проверку — прерываем отправку
-    if (!isNameValid || !isDescValid || !isAvatarValid || !isSystemValid) {
-      return;
-    }
+    if (!isFormValid) return;
 
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/personalities`, {
@@ -46,14 +62,13 @@ const CharacterLab = ({ isOpen, onClose, onCharacterCreated }) => {
         const newChar = await response.json();
         onCharacterCreated(newChar);
         onClose();
-        // Сбрасываем всё при успехе
         setShowErrors(false);
         setFormData({
           name: "",
           description: "",
           system_instruction: "",
           visual_style: "#0a84ff",
-          avatar: "🤖",
+          avatar: `avataaars:${generateRandomSeed()}`,
         });
       }
     } catch (error) {
@@ -66,7 +81,6 @@ const CharacterLab = ({ isOpen, onClose, onCharacterCreated }) => {
   return (
     <div className='lab-overlay'>
       <div className='lab-modal'>
-        {/* Header */}
         <div className='lab-header'>
           <div className='lab-title'>
             <Sparkles size={20} color='var(--accent-blue)' />
@@ -77,7 +91,6 @@ const CharacterLab = ({ isOpen, onClose, onCharacterCreated }) => {
           </button>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className='lab-form'>
           <div className='lab-field'>
             <label>Имя бро</label>
@@ -90,23 +103,68 @@ const CharacterLab = ({ isOpen, onClose, onCharacterCreated }) => {
             />
           </div>
 
-          <div className='lab-row'>
-            <div className='lab-field'>
-              <label>Аватар</label>
-              <input
-                className='text-center'
-                value={formData.avatar}
-                onChange={(e) => setFormData({ ...formData, avatar: e.target.value })}
-              />
+          {/* КОМПАКТНАЯ СТРОКА: Аватар + Цвет */}
+          <div className='lab-row compact-appearance-row'>
+            <div className='avatar-control-group'>
+              <div className='avatar-mini-preview'>
+                <img src={`https://api.dicebear.com/9.x/${style}/svg?seed=${seed}`} alt='Preview' />
+              </div>
+              <div className='avatar-selectors'>
+                {/* КАСТОМНЫЙ СЕЛЕКТОР */}
+                <div className='custom-select-container'>
+                  <div
+                    className={`custom-select-trigger ${isStyleOpen ? "active" : ""}`}
+                    onClick={() => setIsStyleOpen(!isStyleOpen)}
+                  >
+                    <span>{avatarStyles.find((s) => s.id === style)?.name}</span>
+                    <ChevronDown size={14} className={isStyleOpen ? "rotate" : ""} />
+                  </div>
+
+                  <AnimatePresence>
+                    {isStyleOpen && (
+                      <motion.div
+                        className='custom-options'
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                      >
+                        {avatarStyles.map((s) => (
+                          <div
+                            key={s.id}
+                            className={`custom-option ${style === s.id ? "selected" : ""}`}
+                            onClick={() => handleStyleChange(s.id)}
+                          >
+                            {s.name}
+                          </div>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                <button type='button' onClick={handleRandomize} className='lab-btn-icon'>
+                  <RefreshCw size={12} />
+                  <span>Рандом</span>
+                </button>
+              </div>
             </div>
-            <div className='lab-field'>
-              <label>Цвет темы</label>
-              <input
-                type='color'
-                className='color-input'
-                value={formData.visual_style}
-                onChange={(e) => setFormData({ ...formData, visual_style: e.target.value })}
-              />
+
+            {/* Группа Цвета (теперь вся область кликабельна) */}
+            <div className='color-control-group'>
+              <label>Тема</label>
+              <label className='color-picker-trigger'>
+                <input
+                  type='color'
+                  className='hidden-color-input'
+                  value={formData.visual_style}
+                  onChange={(e) => setFormData({ ...formData, visual_style: e.target.value })}
+                />
+                <div
+                  className='color-swatch-circle'
+                  style={{ background: formData.visual_style }}
+                />
+                <span className='color-hex-text'>{formData.visual_style}</span>
+              </label>
             </div>
           </div>
 

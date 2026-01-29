@@ -33,6 +33,7 @@ const Sidebar = ({
   onDeletePersona,
   onClearHistory,
   onLogin,
+  getAvatarUrl, // ДОБАВИЛИ СЮДА!
 }) => {
   const controls = useDragControls();
   const [activeMenu, setActiveMenu] = useState(null);
@@ -93,7 +94,6 @@ const Sidebar = ({
                       className={`personality-item ${p.id === currentId ? "active" : ""}`}
                       style={p.id === currentId ? { borderColor: p.visual_style } : {}}
                     >
-                      {/* ЛЕВАЯ ЧАСТЬ: Зона клика для выбора персонажа */}
                       <div
                         className='personality-clickable-area'
                         onClick={() => {
@@ -101,20 +101,27 @@ const Sidebar = ({
                           onClose();
                         }}
                       >
-                        <span className='persona-emoji'>{p.avatar || "👤"}</span>
-                        <span className='persona-name'>{p.name}</span>
-                        {p.id === currentId && (
-                          <div
-                            className='active-indicator'
-                            style={{
-                              background: p.visual_style,
-                              boxShadow: `0 0 8px ${p.visual_style}`,
-                            }}
+                        <div className='persona-avatar-wrapper'>
+                          <img
+                            src={getAvatarUrl(p.avatar, p.name)}
+                            alt={p.name}
+                            className='persona-avatar-img'
                           />
-                        )}
+
+                          {p.id === currentId && (
+                            <span
+                              className='persona-status-dot'
+                              style={{
+                                background: p.visual_style,
+                                boxShadow: `0 0 8px ${p.visual_style}`,
+                              }}
+                            />
+                          )}
+                        </div>
+
+                        <span className='persona-name'>{p.name}</span>
                       </div>
 
-                      {/* ПРАВАЯ ЧАСТЬ: Кнопка меню внутри плашки */}
                       <div className='persona-menu-container'>
                         <button
                           className={`persona-more-btn ${activeMenu === p.id ? "active" : ""}`}
@@ -176,7 +183,7 @@ const Sidebar = ({
             </div>
 
             <div className='sidebar-footer'>
-              <div className='app-version'>Vibe Buddy v0.26</div>
+              <div className='app-version'>Vibe Buddy v0.29</div>
             </div>
           </motion.div>
         </>

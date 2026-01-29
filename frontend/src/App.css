@@ -47,7 +47,6 @@ body,
   margin: 0;
   padding: 0;
   overflow: hidden;
-  position: fixed;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -75,11 +74,8 @@ body {
   grid-template-columns: 100%;
   width: 100%;
   max-width: 500px;
-  height: 100%;
-  height: 100dvh;
+  height: calc(var(--vh, 1vh) * 100);
   height: var(--tg-viewport-height, 100dvh);
-  max-height: 100svh;
-  min-height: var(--tg-viewport-height, 100dvh);
   background: var(--bg-container);
   border: 1px solid var(--border-color);
   border-radius: 28px;
@@ -90,9 +86,8 @@ body {
 
 @media (max-width: 420px) {
   .chat-container {
-      height: 100dvh;
       border-radius: 0;
-      max-height: none;
+      max-width: 100%;
     }
 }
 
@@ -336,6 +331,14 @@ header {
   touch-action: pan-y;
 }
 
+.persona-name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .personality-item {
   display: flex;
   align-items: center;
@@ -357,10 +360,9 @@ header {
 .personality-clickable-area {
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex: 1;
-  height: 100%;
-  padding: 14px 0;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
   cursor: pointer;
 }
 
@@ -432,6 +434,59 @@ header {
 
 .persona-menu-container {
   position: relative;
+}
+
+.persona-avatar-wrapper {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border-color);
+  overflow: visible;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+
+.persona-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  background-color: #f0f0f0;
+}
+
+
+.persona-status-dot {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-container);
+  z-index: 2;
+}
+
+.persona-status-dot {
+  animation: pulse 1.6s infinite ease-in-out;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.6);
+  }
+
+  70% {
+    box-shadow: 0 0 0 6px rgba(255, 255, 255, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+  }
 }
 
 .persona-more-btn {
@@ -804,6 +859,191 @@ header {
   }
 }
 
+
+.compact-appearance-row {
+  display: flex;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 12px;
+  border-radius: 16px;
+  align-items: center;
+}
+
+.avatar-control-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 2;
+  /* Больше места для аватара */
+  border-right: 1px solid var(--border-color);
+  padding-right: 12px;
+}
+
+.avatar-mini-preview {
+  width: 48px;
+  height: 48px;
+  background: var(--bg-sidebar);
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.avatar-mini-preview img {
+  width: 100%;
+  height: 100%;
+}
+
+.avatar-selectors {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.lab-select-mini {
+  background: #2c2c2e;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 4px;
+  color: white;
+  font-size: 0.75rem;
+}
+
+.lab-btn-icon {
+  background: rgba(10, 132, 255, 0.1);
+  color: var(--accent-blue);
+  border: none;
+  border-radius: 8px;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.color-control-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.color-picker-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #2c2c2e;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.color-picker-wrapper input[type="color"] {
+  width: 20px;
+  height: 20px;
+  border: none;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.color-hex {
+  font-size: 0.7rem;
+  font-family: monospace;
+  opacity: 0.6;
+}
+
+/* Кастомный селектор стиля */
+.custom-select-container {
+  position: relative;
+  width: 100%;
+}
+
+.custom-select-trigger {
+  background: #2c2c2e;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 6px 10px;
+  color: white;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+
+.custom-select-trigger .rotate {
+  transform: rotate(180deg);
+}
+
+.custom-options {
+  position: absolute;
+  top: 110%;
+  left: 0;
+  right: 0;
+  background: #2c2c2e;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  z-index: 100;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+}
+
+.custom-option {
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.custom-option:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.custom-option.selected {
+  color: var(--accent-blue);
+  background: rgba(10, 132, 255, 0.1);
+}
+
+/* Улучшенная палитра цветов */
+.color-picker-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #2c2c2e;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.hidden-color-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.color-swatch-circle {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
+}
+
+.color-hex-text {
+  font-size: 0.75rem;
+  font-family: monospace;
+  color: var(--text-muted);
+}
+
 /* ==========================================================================
    9. WELCOME SCREEN
    ========================================================================== */
@@ -920,4 +1160,56 @@ header {
   color: var(--text-muted);
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+
+
+/* Хедер с аватаркой */
+.header-persona-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-avatar-mini {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--bg-sidebar);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Система тостов */
+.toast {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #2c2c2e;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  color: white;
+  font-size: 0.9rem;
+  min-width: 200px;
+  justify-content: space-between;
+}
+
+.toast-success {
+  border-bottom: 3px solid #34c759;
+}
+
+.toast-danger {
+  border-bottom: 3px solid #ff3b30;
+}
+
+.toast button {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
 }
