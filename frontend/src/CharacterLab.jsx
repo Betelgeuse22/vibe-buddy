@@ -4,12 +4,12 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const CharacterLab = ({ isOpen, onClose, onCharacterCreated }) => {
   const avatarStyles = [
-    { id: "avataaars", name: "Avataaars" },
+    { id: "avataaars", name: "Avatars" },
     { id: "lorelei", name: "Lorelei" },
     { id: "notionists", name: "Notionists" },
     { id: "open-peeps", name: "Open Peeps" },
     { id: "personas", name: "Personas" },
-    { id: "bottts", name: "Bottts" },
+    { id: "bottts", name: "Bots" },
     { id: "micah", name: "Micah" },
     { id: "pixel-art", name: "Pixel Art" },
   ];

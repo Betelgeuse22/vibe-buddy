@@ -6,21 +6,22 @@ const WelcomeScreen = ({ onOpenSidebar, isLoading }) => {
 
   // Устанавливаем 100, если данные уже загружены, иначе 0
   const [progress, setProgress] = useState(isLoading ? 0 : 100);
-
   useEffect(() => {
     let interval;
 
     if (isLoading) {
-      // Стандартная схема "прогрева"
       setProgress(30);
       interval = setInterval(() => {
         setProgress((prev) => {
-          if (prev < 90) return prev + Math.random() * 2;
+          // Если меньше 80% — идем бодро
+          if (prev < 80) return prev + Math.random() * 5;
+          // После 85% — замедляемся, но НЕ останавливаемся, ползем до 98%
+          if (prev < 98) return prev + Math.random() * 0.5;
           return prev;
         });
-      }, 800);
+      }, 400); // Сделали интервал чаще (400мс вместо 800мс) для плавности
     } else {
-      // Если уже загружено — мгновенно 100
+      // Когда isLoading = false, выстреливаем до 100
       setProgress(100);
     }
 
@@ -64,7 +65,12 @@ const WelcomeScreen = ({ onOpenSidebar, isLoading }) => {
                     className='progress-bar'
                     initial={{ width: 0 }}
                     animate={{ width: `${progress}%` }}
-                    transition={{ ease: "easeOut", duration: 0.5 }}
+                    transition={{
+                      // Применяем кривую "выстрела" (backOut эффект)
+                      ease: [0.34, 1.56, 0.64, 1],
+                      // Если прогресс 100, делаем анимацию короче (0.3с), чтобы она "залетала"
+                      duration: progress === 100 ? 0.3 : 0.5,
+                    }}
                   />
                 </div>
                 <p className='logo-sub'>Пробуждаю нейронные связи...</p>
