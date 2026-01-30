@@ -1,8 +1,11 @@
 import React, { useState } from "react";
-import { X, Sparkles, RefreshCw, ChevronDown } from "lucide-react";
+import { X, Sparkles, RefreshCw, ChevronDown, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const CharacterLab = ({ isOpen, onClose, onCharacterCreated }) => {
+// Получаем URL API (теперь запрос идет отсюда)
+const API_URL = import.meta.env.VITE_API_URL;
+
+const CharacterLab = ({ isOpen, onClose, session, onCharacterAdded }) => {
   const avatarStyles = [
     { id: "avataaars", name: "Avatars" },
     { id: "lorelei", name: "Lorelei" },
@@ -28,6 +31,10 @@ const CharacterLab = ({ isOpen, onClose, onCharacterCreated }) => {
   const [style, seed] = formData.avatar.split(":");
   const [showErrors, setShowErrors] = useState(false);
 
+  // Добавили состояния загрузки и ошибки сервера
+  const [isLoading, setIsLoading] = useState(false);
+  const [serverError, setServerError] = useState(null);
+
   // Валидация
   const isNameValid = formData.name.trim().length > 0;
   const isDescValid = formData.description.trim().length > 0;
@@ -48,19 +55,40 @@ const CharacterLab = ({ isOpen, onClose, onCharacterCreated }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setShowErrors(true);
+    setServerError(null);
 
     if (!isFormValid) return;
 
+    // 1. Проверяем авторизацию
+    const userId = session?.user?.id;
+    if (!userId) {
+      setServerError("Ошибка: Войдите в аккаунт, чтобы создать персонажа!");
+      return;
+    }
+
+    setIsLoading(true);
+
+    // 2. Формируем полный объект
+    const payload = {
+      ...formData,
+      is_custom: true,
+      owner_id: userId, // 👈 Привязываем к юзеру
+    };
+
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/personalities`, {
+      const response = await fetch(`${API_URL}/personalities`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
         const newChar = await response.json();
-        onCharacterCreated(newChar);
+
+        // 3. Передаем наверх готового персонажа
+        onCharacterAdded(newChar);
+
+        // Сброс формы
         onClose();
         setShowErrors(false);
         setFormData({
@@ -70,9 +98,14 @@ const CharacterLab = ({ isOpen, onClose, onCharacterCreated }) => {
           visual_style: "#0a84ff",
           avatar: `avataaars:${generateRandomSeed()}`,
         });
+      } else {
+        throw new Error("Ошибка сервера при сохранении");
       }
     } catch (error) {
       console.error("Ошибка при создании бро:", error);
+      setServerError("Не удалось сохранить. Попробуйте еще раз.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -92,10 +125,14 @@ const CharacterLab = ({ isOpen, onClose, onCharacterCreated }) => {
         </div>
 
         <form onSubmit={handleSubmit} className='lab-form'>
+          {/* ОТОБРАЖЕНИЕ ОШИБОК СЕРВЕРА */}
+          {serverError && <div className='lab-server-error'>{serverError}</div>}
+
           <div className='lab-field'>
             <label>Имя бро</label>
             <input
               required
+              disabled={isLoading}
               className={showErrors && !isNameValid ? "input-error" : ""}
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -114,7 +151,7 @@ const CharacterLab = ({ isOpen, onClose, onCharacterCreated }) => {
                 <div className='custom-select-container'>
                   <div
                     className={`custom-select-trigger ${isStyleOpen ? "active" : ""}`}
-                    onClick={() => setIsStyleOpen(!isStyleOpen)}
+                    onClick={() => !isLoading && setIsStyleOpen(!isStyleOpen)}
                   >
                     <span>{avatarStyles.find((s) => s.id === style)?.name}</span>
                     <ChevronDown size={14} className={isStyleOpen ? "rotate" : ""} />
@@ -142,14 +179,19 @@ const CharacterLab = ({ isOpen, onClose, onCharacterCreated }) => {
                   </AnimatePresence>
                 </div>
 
-                <button type='button' onClick={handleRandomize} className='lab-btn-icon'>
+                <button
+                  type='button'
+                  onClick={handleRandomize}
+                  className='lab-btn-icon'
+                  disabled={isLoading}
+                >
                   <RefreshCw size={12} />
                   <span>Рандом</span>
                 </button>
               </div>
             </div>
 
-            {/* Группа Цвета (теперь вся область кликабельна) */}
+            {/* Группа Цвета */}
             <div className='color-control-group'>
               <label>Тема</label>
               <label className='color-picker-trigger'>
@@ -158,6 +200,7 @@ const CharacterLab = ({ isOpen, onClose, onCharacterCreated }) => {
                   className='hidden-color-input'
                   value={formData.visual_style}
                   onChange={(e) => setFormData({ ...formData, visual_style: e.target.value })}
+                  disabled={isLoading}
                 />
                 <div
                   className='color-swatch-circle'
@@ -171,6 +214,7 @@ const CharacterLab = ({ isOpen, onClose, onCharacterCreated }) => {
           <div className='lab-field'>
             <label>Кто он? (Описание)</label>
             <input
+              disabled={isLoading}
               className={showErrors && !isDescValid ? "input-error" : ""}
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -181,6 +225,7 @@ const CharacterLab = ({ isOpen, onClose, onCharacterCreated }) => {
           <div className='lab-field'>
             <label>Системная инструкция (Душа)</label>
             <textarea
+              disabled={isLoading}
               className={showErrors && !isSystemValid ? "input-error" : ""}
               required
               rows='4'
@@ -198,12 +243,18 @@ const CharacterLab = ({ isOpen, onClose, onCharacterCreated }) => {
           <button
             type='submit'
             className='lab-submit-btn'
+            disabled={!isFormValid || isLoading}
             style={{
-              opacity: isFormValid ? 1 : 0.5,
-              cursor: isFormValid ? "pointer" : "not-allowed",
+              opacity: isFormValid && !isLoading ? 1 : 0.5,
+              cursor: isFormValid && !isLoading ? "pointer" : "not-allowed",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
             }}
           >
-            Создать персонажа
+            {isLoading && <Loader2 className='animate-spin' size={18} />}
+            {isLoading ? "Сохраняем..." : "Создать персонажа"}
           </button>
         </form>
       </div>

@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence, useDragControls } from "framer-motion";
-import { Trash2, Users, Plus, X, MoreVertical, Paintbrush } from "lucide-react";
+import { Trash2, Users, Plus, X, MoreVertical, Paintbrush, LogOut } from "lucide-react";
+import { supabase } from "./supabaseClient";
 
+// Иконка Google осталась компонентом для чистоты
 const GoogleIcon = () => (
   <svg width='18' height='18' viewBox='0 0 18 18' xmlns='http://www.w3.org/2000/svg'>
     <path
@@ -28,12 +30,12 @@ const Sidebar = ({
   onClose,
   personalities,
   currentId,
+  session, // 👈 Получаем сессию
   onSelect,
   onAdd,
   onDeletePersona,
   onClearHistory,
-  onLogin,
-  getAvatarUrl, // ДОБАВИЛИ СЮДА!
+  getAvatarUrl,
 }) => {
   const controls = useDragControls();
   const [activeMenu, setActiveMenu] = useState(null);
@@ -41,6 +43,19 @@ const Sidebar = ({
   const handleAction = (callback, id) => {
     callback(id);
     setActiveMenu(null);
+  };
+
+  // Логика входа
+  const handleGoogleLogin = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { queryParams: { access_type: "offline", prompt: "consent" } },
+    });
+  };
+
+  // Логика выхода
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
   };
 
   return (
@@ -72,11 +87,45 @@ const Sidebar = ({
             <div className='sidebar-header'>
               <div className='sidebar-auth-section'>
                 <p className='sidebar-section-title'>Аккаунт</p>
-                <button className='google-auth-btn' onClick={onLogin}>
-                  <GoogleIcon />
-                  <span>Войти через Google</span>
-                </button>
+
+                {/* 👇 ПЕРЕКЛЮЧАТЕЛЬ: ВХОД / ПРОФИЛЬ */}
+                {!session ? (
+                  <button className='google-auth-btn' onClick={handleGoogleLogin}>
+                    <GoogleIcon />
+                    <span>Войти через Google</span>
+                  </button>
+                ) : (
+                  <div className='user-profile-card'>
+                    <div className='user-info'>
+                      {/* 👇 ЛОГИКА АВАТАРА */}
+                      {session.user.user_metadata.avatar_url ? (
+                        <img
+                          src={session.user.user_metadata.avatar_url}
+                          alt='User'
+                          className='user-avatar'
+                        />
+                      ) : (
+                        <div className='user-avatar avatar-placeholder'>
+                          {/* Берем первую букву имени или почты */}
+                          {(session.user.user_metadata.full_name || session.user.email || "?")[0]}
+                        </div>
+                      )}
+
+                      <div className='user-text'>
+                        <span className='user-name'>
+                          {session.user.user_metadata.full_name || "Пользователь"}
+                        </span>
+                        <span className='user-email'>{session.user.email}</span>
+                      </div>
+                    </div>
+                    <button className='logout-btn' onClick={handleLogout}>
+                      <LogOut size={14} />
+                      Выйти
+                    </button>
+                  </div>
+                )}
               </div>
+
               <button className='menu-trigger-btn' onClick={onClose} style={{ marginTop: "-10px" }}>
                 <X size={24} color='white' />
               </button>
@@ -118,7 +167,6 @@ const Sidebar = ({
                             />
                           )}
                         </div>
-
                         <span className='persona-name'>{p.name}</span>
                       </div>
 
@@ -132,7 +180,6 @@ const Sidebar = ({
                         >
                           <MoreVertical size={18} />
                         </button>
-
                         <AnimatePresence>
                           {activeMenu === p.id && (
                             <>
@@ -176,6 +223,7 @@ const Sidebar = ({
                 </div>
               </div>
 
+              {/* Кнопка создания доступна всем (пока) */}
               <button className='add-friend-btn' onClick={onAdd}>
                 <Plus size={20} />
                 <span>Создать друга</span>

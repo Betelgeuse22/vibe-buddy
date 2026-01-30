@@ -146,6 +146,37 @@ header {
   align-items: center;
 }
 
+.header-right {
+  gap: 12px;
+}
+
+.header-user-avatar {
+  width: 32px;
+  /* Фиксированный размер */
+  height: 32px;
+  border-radius: 50%;
+  /* Делаем круг */
+  object-fit: cover;
+  /* Чтобы картинку не сплющило */
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  /* Легкая обводка */
+
+  /* Анимация появления */
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 .header-left {
   justify-content: flex-start;
   transition: var(--transition);
@@ -168,7 +199,12 @@ header {
 }
 
 .header-right {
+  display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 12px;
+  position: relative;
+  min-width: 80px;
 }
 
 .header-title {
@@ -197,10 +233,98 @@ header {
   color: var(--text-main);
   cursor: pointer;
   transition: background 0.2s ease;
+  flex-shrink: 0;
+  margin: 0;
 }
 
 .menu-trigger-btn:hover {
   background: var(--bg-ai);
+}
+
+
+/* Контейнер аватара (для ховера) */
+.header-avatar-container {
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.header-avatar-container:hover {
+  transform: scale(1.05);
+}
+
+.profile-email-container {
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 4px;
+}
+
+.profile-email-text {
+  font-size: 0.75rem;
+  /* 12px */
+  color: #9ca3af;
+  /* gray-400 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* --- Выпадающее меню профиля в хедере --- */
+.profile-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  background: rgba(0,0,0,0.1);
+}
+
+.header-profile-dropdown {
+  position: absolute;
+  top: 50px;
+  right: 0;
+  background-color: #1e1e1e;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  z-index: 50;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.header-profile-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  font-size: 14px;
+  color: #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+}
+
+.header-profile-item:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.header-profile-item.danger {
+  color: #f87171;
+}
+
+.header-profile-item.danger:hover {
+  background-color: rgba(239, 68, 68, 0.1);
 }
 
 /* ==========================================================================
@@ -561,6 +685,81 @@ header {
   background: rgba(255, 255, 255, 0.1);
 }
 
+
+/* --- Стили профиля в сайдбаре --- */
+
+.user-profile-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  object-fit: cover;
+}
+
+.user-text {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.user-name {
+  font-size: 0.875rem;
+  /* 14px */
+  font-weight: 500;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-email {
+  font-size: 0.75rem;
+  /* 12px */
+  color: #9ca3af;
+  /* gray-400 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.logout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px;
+  border-radius: 8px;
+  background-color: rgba(239, 68, 68, 0.1);
+  /* red-500/10 */
+  color: #f87171;
+  /* red-400 */
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.logout-btn:hover {
+  background-color: rgba(239, 68, 68, 0.2);
+}
 
 /* ==========================================================================
    6. СПИСОК СООБЩЕНИЙ
@@ -1064,6 +1263,66 @@ header {
   font-size: 0.75rem;
   font-family: monospace;
   color: var(--text-muted);
+}
+
+.lab-server-error {
+  background-color: rgba(239, 68, 68, 0.1);
+  /* Полупрозрачный красный фон */
+  color: #f87171;
+  /* Светло-красный текст */
+  font-size: 0.875rem;
+  /* 14px */
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  /* Тонкая рамка */
+  text-align: center;
+
+  /* Легкая анимация появления */
+  animation: shake 0.4s ease-in-out;
+}
+
+@keyframes shake {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(-4px);
+  }
+
+  75% {
+    transform: translateX(4px);
+  }
+}
+
+
+.avatar-placeholder {
+  width: 40px !important;
+  /* Принудительный размер */
+  height: 40px !important;
+  /* Принудительный размер */
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+  color: white;
+  font-weight: bold;
+  font-size: 18px;
+  text-transform: uppercase;
+  user-select: none;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Для маленького аватара в хедере */
+.header-user-avatar.avatar-placeholder {
+  font-size: 0.9rem;
+  /* Чуть меньше шрифт */
+  border: 2px solid rgba(255, 255, 255, 0.2);
 }
 
 /* ==========================================================================

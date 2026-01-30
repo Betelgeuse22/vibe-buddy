@@ -1,7 +1,7 @@
-// 1. Добавили React в импорт
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, SendHorizonal, Loader2, X as CloseIcon } from "lucide-react";
+import { Menu, SendHorizonal, Loader2, X as CloseIcon, LogOut } from "lucide-react";
+import { supabase } from "./supabaseClient";
 import Sidebar from "./Sidebar";
 import CharacterLab from "./CharacterLab";
 import WelcomeScreen from "./WelcomeScreen";
@@ -27,6 +27,13 @@ function App() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  // 🔐 АВТОРИЗАЦИЯ
+  const [session, setSession] = useState(null);
+
+  // 👤 МЕНЮ ПРОФИЛЯ
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+
   const [personalityId, setPersonalityId] = useState(null);
   const [personalities, setPersonalities] = useState([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -41,23 +48,182 @@ function App() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const handleGoogleLogin = () => {
-    showToast("Скоро: Авторизация через Google", "success");
+  // --- 1. СЛУШАТЕЛЬ АВТОРИЗАЦИИ ---
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (!session) {
+        setPersonalityId(null);
+        setIsProfileOpen(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // --- 2. ЗАГРУЗКА ПЕРСОНАЖЕЙ ---
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchPersonalities = async () => {
+      try {
+        const userId = session?.user?.id;
+        const url = userId
+          ? `${API_URL}/personalities?user_id=${userId}`
+          : `${API_URL}/personalities`;
+
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (isMounted) setPersonalities(data);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        if (isMounted) setIsInitialLoading(false);
+      }
+    };
+
+    fetchPersonalities();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [session]);
+
+  // --- 3. ЗАГРУЗКА ИСТОРИИ ---
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (isInitialLoading || !personalityId) return;
+
+      try {
+        const userId = session?.user?.id;
+
+        if (!userId) {
+          setMessages([]);
+          return;
+        }
+
+        const res = await fetch(
+          `${API_URL}/messages?personality_id=${personalityId}&user_id=${userId}`,
+        );
+        const data = await res.json();
+
+        setMessages(
+          data.map((msg) => ({
+            role: msg.role === "assistant" ? "model" : msg.role,
+            parts: msg.parts,
+            theme: msg.theme,
+            time: formatTime(msg.time),
+            timestamp: msg.time,
+          })),
+        );
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    fetchHistory();
+  }, [personalityId, isInitialLoading, session]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isLoading]);
+
+  useEffect(() => {
+    const setVh = () => {
+      document.documentElement.style.setProperty("--vh", `${window.innerHeight * 0.01}px`);
+    };
+    setVh();
+    window.addEventListener("resize", setVh);
+    return () => window.removeEventListener("resize", setVh);
+  }, []);
+
+  // --- ФУНКЦИЯ ВЫХОДА ---
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setIsProfileOpen(false);
   };
 
-  const handleNewCharacter = (newChar) => {
-    setPersonalities((prev) => [...prev, newChar]);
+  // --- СОЗДАНИЕ ПЕРСОНАЖА ---
+  const handleCharacterAdded = (savedChar) => {
+    setPersonalities((prev) => [...prev, savedChar]);
+    setPersonalityId(savedChar.id);
     showToast("Новый бро создан! ✨");
   };
 
+  // --- ОТПРАВКА СООБЩЕНИЯ ---
+  const sendMessage = async () => {
+    if (!input.trim() || isLoading) return;
+
+    if (!session?.user?.id) {
+      showToast("Войди в аккаунт, чтобы сохранять переписку!", "danger");
+    }
+
+    const now = new Date().toISOString();
+    const userMsg = { role: "user", parts: [input], time: formatTime(now), timestamp: now };
+    setMessages((prev) => [...prev, userMsg]);
+    setInput("");
+    setIsLoading(true);
+
+    try {
+      const res = await fetch(`${API_URL}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          history: [...messages, userMsg].map((m) => ({ role: m.role, parts: m.parts })),
+          personality_id: personalityId ?? undefined,
+          user_id: session?.user?.id,
+        }),
+      });
+
+      const data = await res.json();
+      const aiTime = new Date().toISOString();
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "model",
+          parts: [data.text],
+          theme: data.visual_hint,
+          time: formatTime(aiTime),
+          timestamp: aiTime,
+        },
+      ]);
+    } catch (e) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "model",
+          parts: ["Ошибка связи 😵"],
+          time: formatTime(),
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
   const handleDeletePersona = async (id) => {
     if (window.confirm("Бро, ты уверен? Персонаж и переписка исчезнут навсегда!")) {
       try {
-        const response = await fetch(`${API_URL}/personalities/${id}`, { method: "DELETE" });
+        const userId = session?.user?.id;
+        const response = await fetch(`${API_URL}/personalities/${id}?user_id=${userId}`, {
+          method: "DELETE",
+        });
+
         if (response.ok) {
           setPersonalities((prev) => prev.filter((p) => p.id !== id));
           if (personalityId === id) setPersonalityId(null);
           showToast("Персонаж удален", "danger");
+        } else {
+          showToast("Нельзя удалить чужого бота!", "danger");
         }
       } catch (e) {
         console.error(e);
@@ -68,7 +234,10 @@ function App() {
   const handleClearHistory = async (id) => {
     if (window.confirm("Очистить историю сообщений?")) {
       try {
-        const response = await fetch(`${API_URL}/messages?personality_id=${id}`, {
+        const userId = session?.user?.id;
+        if (!userId) return;
+
+        const response = await fetch(`${API_URL}/messages?personality_id=${id}&user_id=${userId}`, {
           method: "DELETE",
         });
         if (response.ok) {
@@ -99,10 +268,8 @@ function App() {
     if (el) el.parentElement.scrollTop = el.parentElement.scrollHeight;
   };
 
-  // --- ЛОГИКА ДАТ ---
   const isNewDay = (prevMsg, currMsg) => {
     if (!prevMsg) return true;
-    // Используем .timestamp, который мы добавим в объект сообщения ниже
     const d1 = new Date(prevMsg.timestamp).toDateString();
     const d2 = new Date(currMsg.timestamp).toDateString();
     return d1 !== d2;
@@ -113,103 +280,6 @@ function App() {
     const now = new Date();
     if (date.toDateString() === now.toDateString()) return "Сегодня";
     return date.toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
-  };
-
-  useEffect(() => {
-    let isMounted = true;
-    const initApp = async () => {
-      try {
-        const res = await fetch(`${API_URL}/personalities`);
-        const data = await res.json();
-        if (isMounted) setPersonalities(data);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        if (isMounted) setIsInitialLoading(false);
-      }
-    };
-    initApp();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    const fetchHistory = async () => {
-      if (isInitialLoading || !personalityId) return;
-      try {
-        const res = await fetch(`${API_URL}/messages?personality_id=${personalityId}`);
-        const data = await res.json();
-        setMessages(
-          data.map((msg) => ({
-            role: msg.role === "assistant" ? "model" : msg.role,
-            parts: msg.parts,
-            theme: msg.theme,
-            time: formatTime(msg.time),
-            timestamp: msg.time, // Сохраняем полную дату для сравнения дней
-          })),
-        );
-      } catch (e) {
-        console.error(e);
-      }
-    };
-    fetchHistory();
-  }, [personalityId, isInitialLoading]);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, isLoading]);
-
-  useEffect(() => {
-    const setVh = () => {
-      document.documentElement.style.setProperty("--vh", `${window.innerHeight * 0.01}px`);
-    };
-    setVh();
-    window.addEventListener("resize", setVh);
-    return () => window.removeEventListener("resize", setVh);
-  }, []);
-
-  const sendMessage = async () => {
-    if (!input.trim() || isLoading) return;
-    const now = new Date().toISOString();
-    const userMsg = { role: "user", parts: [input], time: formatTime(now), timestamp: now };
-    setMessages((prev) => [...prev, userMsg]);
-    setInput("");
-    setIsLoading(true);
-    try {
-      const res = await fetch(`${API_URL}/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          history: [...messages, userMsg].map((m) => ({ role: m.role, parts: m.parts })),
-          personality_id: personalityId ?? undefined,
-        }),
-      });
-      const data = await res.json();
-      const aiTime = new Date().toISOString();
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "model",
-          parts: [data.text],
-          theme: data.visual_hint,
-          time: formatTime(aiTime),
-          timestamp: aiTime,
-        },
-      ]);
-    } catch (e) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "model",
-          parts: ["Ошибка связи 😵"],
-          time: formatTime(),
-          timestamp: new Date().toISOString(),
-        },
-      ]);
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   const currentPersona = personalities.find((p) => p.id === personalityId);
@@ -247,7 +317,61 @@ function App() {
             )}
           </AnimatePresence>
         </div>
+
+        {/* ПРАВАЯ ЧАСТЬ ХЕДЕРА */}
         <div className='header-right'>
+          {/* АВАТАРКА + МЕНЮ (Показываем только если есть юзер) */}
+          {session?.user && (
+            <>
+              {/* Кликабельный контейнер аватара */}
+              <div
+                onClick={() => setIsProfileOpen(!isProfileOpen)}
+                className='header-avatar-container'
+              >
+                {session.user.user_metadata?.avatar_url ? (
+                  <img
+                    src={session.user.user_metadata.avatar_url}
+                    className='header-user-avatar'
+                    alt='User'
+                  />
+                ) : (
+                  <div className='header-user-avatar avatar-placeholder header-placeholder'>
+                    {(session.user.user_metadata?.full_name ||
+                      session.user.email ||
+                      "?")[0].toUpperCase()}
+                  </div>
+                )}
+              </div>
+
+              {/* Выпадающее меню */}
+              <AnimatePresence>
+                {isProfileOpen && (
+                  <>
+                    <div className='profile-overlay' onClick={() => setIsProfileOpen(false)} />
+
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      transition={{ duration: 0.1 }}
+                      className='header-profile-dropdown'
+                    >
+                      <div className='profile-email-container'>
+                        <p className='profile-email-text'>{session?.user?.email}</p>
+                      </div>
+
+                      <button className='header-profile-item danger' onClick={handleLogout}>
+                        <LogOut size={16} />
+                        Выйти
+                      </button>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </>
+          )}
+
+          {/* КНОПКА БУРГЕР-МЕНЮ */}
           <button className='menu-trigger-btn' onClick={() => setIsMenuOpen(true)}>
             <Menu size={24} />
           </button>
@@ -290,13 +414,7 @@ function App() {
                       <motion.div
                         initial={{ opacity: 0, scale: 0.92, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
-                        transition={{
-                          type: "spring",
-                          stiffness: 80,
-                          damping: 20,
-                          mass: 1,
-                          duration: 0.6,
-                        }}
+                        transition={{ type: "spring", stiffness: 80, damping: 20 }}
                         className={`message-bubble ${msg.role === "user" ? "user" : "ai"}`}
                         style={
                           msg.role === "model"
@@ -351,6 +469,7 @@ function App() {
         onClose={() => setIsMenuOpen(false)}
         personalities={personalities}
         currentId={personalityId}
+        session={session}
         onSelect={(id) => setPersonalityId(id)}
         onAdd={() => {
           setIsLabOpen(true);
@@ -358,14 +477,16 @@ function App() {
         }}
         onDeletePersona={handleDeletePersona}
         onClearHistory={handleClearHistory}
-        onLogin={handleGoogleLogin}
         getAvatarUrl={getAvatarUrl}
       />
+
       <CharacterLab
         isOpen={isLabOpen}
         onClose={() => setIsLabOpen(false)}
-        onCharacterCreated={handleNewCharacter}
+        session={session}
+        onCharacterAdded={handleCharacterAdded}
       />
+
       <AnimatePresence>
         {toast && (
           <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
