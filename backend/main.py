@@ -5,6 +5,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 from sqlmodel import select, Session, delete, or_
 import uuid  # 👈 1. Важный импорт
+from ai_engine import get_vibe_response, generate_summary
 
 from models import Personality, Message
 from database import init_db, get_session
@@ -89,19 +90,15 @@ def get_messages(
 
 @app.post("/chat")
 async def chat(request: ChatRequest, db: Session = Depends(get_session)):
+    # 1. Ищем персонажа
     personality = db.exec(select(Personality).where(
         Personality.id == request.personality_id)).first()
 
     if not personality:
         raise HTTPException(status_code=404, detail="Персонаж не найден")
 
-    # 🔒 Если нет user_id (гость), мы пока не сохраняем историю в БД,
-    # чтобы не ломать логику required полей.
-    # Либо можно создать временного юзера.
-    # Для MVP: Если есть user_id - сохраняем. Если нет - просто отвечаем.
-
+    # 2. Сохраняем сообщение пользователя (если авторизован)
     if request.user_id:
-        # 1. Сохраняем сообщение юзера
         db.add(Message(
             role="user",
             content=request.history[-1].parts[0],
@@ -110,11 +107,29 @@ async def chat(request: ChatRequest, db: Session = Depends(get_session)):
         ))
         db.commit()
 
-    # Генерация ответа
-    response_data = await get_vibe_response(request.history, personality.system_instruction)
+    # 3. ГЕНЕРАЦИЯ ОТВЕТА
+    # Теперь ИИ получает "память" через personality.summary
+    response_data = await get_vibe_response(
+        request.history,
+        personality.system_instruction,
+        personality.summary
+    )
 
+    # 4. ОБНОВЛЕНИЕ САММАРИ (если переписка длинная)
+    # Каждое 20-е сообщение мы "освежаем" выжимку
+    if request.user_id and len(request.history) % 20 == 0:
+        # Генерируем новую память, учитывая старую
+        new_summary = await generate_summary(request.history, personality.summary)
+
+        # Сохраняем её в базу к персонажу
+        personality.summary = new_summary
+        db.add(personality)
+        db.commit()
+        # История сообщений НЕ удаляется, как ты и просил
+        print(f"✅ Память персонажа {personality.name} обновлена")
+
+    # 5. Сохраняем ответ ИИ
     if request.user_id:
-        # 2. Сохраняем ответ ИИ
         db.add(Message(
             role="assistant",
             content=response_data["text"],

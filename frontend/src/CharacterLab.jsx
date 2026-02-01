@@ -35,13 +35,20 @@ const CharacterLab = ({ isOpen, onClose, session, onCharacterAdded }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [serverError, setServerError] = useState(null);
 
+  // Вычисляем длину текста БЕЗ пробелов
+  const systemTextWithoutSpaces = formData.system_instruction.replace(/\s/g, "");
+
   // Валидация
   const isNameValid = formData.name.trim().length > 0;
   const isDescValid = formData.description.trim().length > 0;
-  const isSystemValid = formData.system_instruction.trim().length >= 50;
+
+  // Проверяем честные 50 символов (без учета пробелов)
+  const isSystemValid = systemTextWithoutSpaces.length >= 50;
+
   const isFormValid = isNameValid && isDescValid && isSystemValid;
 
-  const remaining = 50 - formData.system_instruction.length;
+  // Сколько осталось до 50 символов (без учета пробелов)
+  const remaining = 50 - systemTextWithoutSpaces.length;
 
   const handleRandomize = () => {
     setFormData({ ...formData, avatar: `${style}:${generateRandomSeed()}` });

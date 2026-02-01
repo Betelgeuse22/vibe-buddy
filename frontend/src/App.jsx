@@ -101,30 +101,40 @@ function App() {
     const fetchHistory = async () => {
       if (isInitialLoading || !personalityId) return;
 
-      try {
-        const userId = session?.user?.id;
+      const userId = session?.user?.id;
 
-        if (!userId) {
-          setMessages([]);
-          return;
+      if (userId) {
+        // --- ВАРИАНТ А: Пользователь залогинен (Сервер) ---
+        try {
+          const res = await fetch(
+            `${API_URL}/messages?personality_id=${personalityId}&user_id=${userId}`,
+          );
+          const data = await res.json();
+          setMessages(
+            data.map((msg) => ({
+              role: msg.role === "assistant" ? "model" : msg.role,
+              parts: msg.parts,
+              theme: msg.theme,
+              time: formatTime(msg.time),
+              timestamp: msg.time,
+            })),
+          );
+        } catch (e) {
+          console.error("Ошибка загрузки истории с сервера:", e);
         }
-
-        const res = await fetch(
-          `${API_URL}/messages?personality_id=${personalityId}&user_id=${userId}`,
-        );
-        const data = await res.json();
-
-        setMessages(
-          data.map((msg) => ({
-            role: msg.role === "assistant" ? "model" : msg.role,
-            parts: msg.parts,
-            theme: msg.theme,
-            time: formatTime(msg.time),
-            timestamp: msg.time,
-          })),
-        );
-      } catch (e) {
-        console.error(e);
+      } else {
+        // --- ВАРИАНТ Б: Гость (LocalStorage) ---
+        const localData = localStorage.getItem(`guest_history_${personalityId}`);
+        if (localData) {
+          try {
+            setMessages(JSON.parse(localData));
+          } catch (e) {
+            console.error("Ошибка парсинга локальной истории:", e);
+            setMessages([]);
+          }
+        } else {
+          setMessages([]);
+        }
       }
     };
     fetchHistory();
@@ -160,50 +170,50 @@ function App() {
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
 
-    if (!session?.user?.id) {
-      showToast("Войди в аккаунт, чтобы сохранять переписку!", "danger");
-    }
-
     const now = new Date().toISOString();
     const userMsg = { role: "user", parts: [input], time: formatTime(now), timestamp: now };
-    setMessages((prev) => [...prev, userMsg]);
+
+    // Сразу обновляем стейт
+    const newMessages = [...messages, userMsg];
+    setMessages(newMessages);
     setInput("");
     setIsLoading(true);
+
+    // Если гость — сохраняем в LocalStorage
+    if (!session?.user?.id) {
+      localStorage.setItem(`guest_history_${personalityId}`, JSON.stringify(newMessages));
+    }
 
     try {
       const res = await fetch(`${API_URL}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          history: [...messages, userMsg].map((m) => ({ role: m.role, parts: m.parts })),
-          personality_id: personalityId ?? undefined,
-          user_id: session?.user?.id,
+          history: newMessages.map((m) => ({ role: m.role, parts: m.parts })),
+          personality_id: personalityId,
+          user_id: session?.user?.id || null, // Шлем null для гостя
         }),
       });
 
       const data = await res.json();
       const aiTime = new Date().toISOString();
+      const aiMsg = {
+        role: "model",
+        parts: [data.text],
+        theme: data.visual_hint,
+        time: formatTime(aiTime),
+        timestamp: aiTime,
+      };
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "model",
-          parts: [data.text],
-          theme: data.visual_hint,
-          time: formatTime(aiTime),
-          timestamp: aiTime,
-        },
-      ]);
+      const finalMessages = [...newMessages, aiMsg];
+      setMessages(finalMessages);
+
+      // Если гость — обновляем LocalStorage с ответом ИИ
+      if (!session?.user?.id) {
+        localStorage.setItem(`guest_history_${personalityId}`, JSON.stringify(finalMessages));
+      }
     } catch (e) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "model",
-          parts: ["Ошибка связи 😵"],
-          time: formatTime(),
-          timestamp: new Date().toISOString(),
-        },
-      ]);
+      console.error("Ошибка чата:", e);
     } finally {
       setIsLoading(false);
     }
@@ -233,20 +243,18 @@ function App() {
 
   const handleClearHistory = async (id) => {
     if (window.confirm("Очистить историю сообщений?")) {
-      try {
-        const userId = session?.user?.id;
-        if (!userId) return;
-
-        const response = await fetch(`${API_URL}/messages?personality_id=${id}&user_id=${userId}`, {
+      const userId = session?.user?.id;
+      if (userId) {
+        // Чистим сервер
+        await fetch(`${API_URL}/messages?personality_id=${id}&user_id=${userId}`, {
           method: "DELETE",
         });
-        if (response.ok) {
-          if (personalityId === id) setMessages([]);
-          showToast("История очищена 🧹");
-        }
-      } catch (e) {
-        console.error(e);
+      } else {
+        // Чистим локально
+        localStorage.removeItem(`guest_history_${id}`);
       }
+      setMessages([]);
+      showToast("История очищена 🧹");
     }
   };
 

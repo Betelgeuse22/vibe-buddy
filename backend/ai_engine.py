@@ -2,21 +2,19 @@ import os
 import json
 from openai import AsyncOpenAI
 from pydantic import BaseModel, ValidationError, Field
+from typing import List, Optional
 from dotenv import load_dotenv
 
-# Загружаем переменные из .env (GROQ_API_KEY)
 load_dotenv()
 
-# Инициализируем клиента для работы с Groq API
-# Мы используем AsyncOpenAI, чтобы сервер не "замирал", пока ждет ответа от нейросети
+# Инициализируем клиента
 client = AsyncOpenAI(
     api_key=os.getenv("GROQ_API_KEY"),
     base_url="https://api.groq.com/openai/v1"
 )
 
-# --- СХЕМА ВАЛИДАЦИИ (CONTRACT) ---
-# Pydantic класс гарантирует, что ИИ не пришлет нам лишнего мусора.
-# Если какое-то поле будет отсутствовать, сработают значения по умолчанию (default).
+# Выносим актуальную модель 2026 года в константу
+CURRENT_MODEL = "llama-3.3-70b-versatile"
 
 
 class VibeResponse(BaseModel):
@@ -24,63 +22,101 @@ class VibeResponse(BaseModel):
     emotion: str = Field(default="chill")
     visual_hint: str = Field(default="#ccc")
 
+# --- ФУНКЦИЯ СУММАРИЗАЦИИ (СЖАТИЕ ПАМЯТИ) ---
+
+
+async def generate_summary(history_data: List, current_summary: Optional[str] = None):
+    """
+    Использует Llama 4 для создания интеллектуального архива диалога.
+    Безопасно обрабатывает и объекты БД, и словари.
+    """
+    content_list = []
+    for m in history_data:
+        # Безопасное извлечение роли и текста
+        if hasattr(m, 'role'):
+            role = m.role
+            parts = m.parts
+        else:
+            role = m.get('role', 'user')
+            parts = m.get('parts', [""])
+
+        text = parts[0] if parts else ""
+        content_list.append(f"{role}: {text}")
+
+    content_to_summarize = "\n".join(content_list)
+
+    prompt = (
+        "Create a concise summary of the conversation. "
+        "STRATEGY: Update the existing memory with new information. "
+        "1. NEVER discard permanent personal facts about the user (names, pets, preferences, job). "
+        "2. Discard temporary small talk or finished topics. "
+        "3. Keep the summary within 8-10 sentences if there are many important facts. "
+        f"\nOld Memory to update: {current_summary if current_summary else 'None'}"
+    )
+
+    try:
+        response = await client.chat.completions.create(
+            model=CURRENT_MODEL,
+            messages=[
+                {"role": "system", "content": "You are a highly efficient memory assistant. Synthesize facts while preserving personality context."},
+                {"role": "user", "content": f"{prompt}\n\nChat history:\n{content_to_summarize}"}
+            ],
+            temperature=0.3
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        print(f"❌ Ошибка при создании саммари: {e}")
+        return current_summary
+
 # --- ГЛАВНАЯ ФУНКЦИЯ "МОЗГА" ---
 
 
-async def get_vibe_response(history_data, db_instruction: str):
+async def get_vibe_response(history_data, db_instruction: str, current_summary: Optional[str] = None):
     """
-    history_data: список сообщений от пользователя и ИИ (из фронтенда)
-    db_instruction: личный промпт персонажа (из нашей базы Supabase)
+    Генерирует ответ персонажа, учитывая его 'душу' и долгосрочную память.
     """
 
-    # 1. Формируем "Личность".
-    # Склеиваем инструкцию из базы с жестким требованием возвращать только JSON.
+    memory_context = f"\n\nPERMANENT MEMORY OF PAST EVENTS: {current_summary}" if current_summary else ""
+
     system_prompt = (
         f"{db_instruction} "
+        f"{memory_context}"
         "\n\nIMPORTANT: You must ALWAYS return a JSON object with EXACTLY these three fields: "
         "1. 'text' (string) "
         "2. 'emotion' (string) "
         "3. 'visual_hint' (hex color string). "
-        "Do not omit any fields! Respond only in JSON."
+        "Respond ONLY in valid JSON format."
     )
 
-    # Начальный список сообщений для отправки в нейросеть
     messages = [{"role": "system", "content": system_prompt}]
 
-    # 2. Конвертируем историю сообщений под стандарт OpenAI/Groq
-    # Наш фронтенд присылает 'model', а Groq ждет 'assistant'
     for msg in history_data:
-        role = "assistant" if msg.role in ["model", "assistant"] else "user"
-        # Сообщение попадает в список в чистом текстовом виде
-        messages.append({"role": role, "content": msg.parts[0]})
+        # Безопасная проверка: объект это или словарь
+        if hasattr(msg, 'role'):
+            role_val = msg.role
+            parts = msg.parts
+        else:
+            role_val = msg.get('role', 'user')
+            parts = msg.get('parts', [""])
+
+        content_val = parts[0] if parts else ""
+
+        # Приведение роли к стандарту Groq
+        role = "assistant" if role_val in ["model", "assistant"] else "user"
+        messages.append({"role": role, "content": content_val})
 
     try:
-        # 3. Запрос к нейросети (Llama 3.3 70B)
-        # temperature=0.8 дает персонажу немного "творческой свободы" и вайба
         response = await client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model=CURRENT_MODEL,
             messages=messages,
-            temperature=0.8,
-            # Заставляем модель выдать именно JSON
+            temperature=0.85,
             response_format={"type": "json_object"}
         )
 
-        # Вытаскиваем текстовое содержимое из ответа API
         raw_content = response.choices[0].message.content
-
-        # 4. Проверка данных через Pydantic.
-        # Если ИИ прислал кривой JSON, Pydantic это поймает.
         validated_data = VibeResponse.model_validate_json(raw_content)
-
-        # Превращаем объект класса обратно в обычный словарь (dict) для бэкенда
         return validated_data.model_dump()
 
-    except ValidationError as ve:
-        # Сработает, если ИИ выдал JSON, но забыл какое-то поле (например, 'emotion')
-        print(f"❌ Ошибка структуры JSON: {ve}")
-        return {"text": "Ой, я немного запутался в своих чувствах...", "emotion": "confused", "visual_hint": "gray"}
-
     except Exception as e:
-        # Сработает, если API Groq упало или кончились токены
         print(f"❌ Ошибка API: {e}")
-        return {"text": "Бро, что-то связь барахлит. Глянь консоль.", "emotion": "offline", "visual_hint": "red"}
+        return {"text": "Бро, мои нейроны запутались. Попробуй еще раз?", "emotion": "offline", "visual_hint": "red"}

@@ -21,6 +21,7 @@ class Personality(SQLModel, table=True):
 
     # Кто создал этого бота? (Если None — значит создал Админ/Система)
     owner_id: Optional[uuid.UUID] = Field(default=None, index=True)
+    summary: Optional[str] = Field(default=None)
 
 # 3. Контейнер для чата (Сессия диалога)
 
