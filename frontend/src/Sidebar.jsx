@@ -47,6 +47,16 @@ const Sidebar = ({
 
   const tg = window.Telegram?.WebApp;
 
+  const getSafeUserAvatar = (session) => {
+    const url = session?.user?.user_metadata?.avatar_url;
+
+    if (url && url.startsWith("http")) return url;
+
+    const seed = session?.user?.user_metadata?.full_name || session?.user?.email || "user";
+
+    return `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(seed)}`;
+  };
+
   // Логика входа
   const handleGoogleLogin = async () => {
     await supabase.auth.signInWithOAuth({
@@ -103,9 +113,16 @@ const Sidebar = ({
                       {/* 👇 ЛОГИКА АВАТАРА */}
                       {session.user.user_metadata.avatar_url ? (
                         <img
-                          src={session.user.user_metadata.avatar_url}
+                          src={getSafeUserAvatar(session)}
                           alt='User'
                           className='user-avatar'
+                          referrerPolicy='no-referrer'
+                          onError={(e) => {
+                            const seed =
+                              session.user.user_metadata.full_name || session.user.email || "user";
+
+                            e.currentTarget.src = `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(seed)}`;
+                          }}
                         />
                       ) : (
                         <div className='user-avatar avatar-placeholder'>

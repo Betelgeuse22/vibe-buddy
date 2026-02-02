@@ -72,7 +72,7 @@ function App() {
             email: displayName, // Пойдет в профиль
             user_metadata: {
               full_name: u.first_name,
-              avatar_url: u.photo_url, // Твоя аватарка из TG 🖼
+              avatar_url: u.photo_url || null, // Твоя аватарка из TG 🖼
             },
           },
         });
@@ -233,6 +233,16 @@ function App() {
     return `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(name || "buddy")}`;
   };
 
+  const getSafeUserAvatar = (session) => {
+    const url = session?.user?.user_metadata?.avatar_url;
+
+    if (url && url.startsWith("http")) return url;
+
+    const seed = session?.user?.user_metadata?.full_name || session?.user?.email || "user";
+
+    return `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(seed)}`;
+  };
+
   const currentPersona = personalities.find((p) => p.id === personalityId);
 
   return (
@@ -274,9 +284,16 @@ function App() {
               >
                 {session.user.user_metadata?.avatar_url ? (
                   <img
-                    src={session.user.user_metadata.avatar_url}
+                    src={getSafeUserAvatar(session)}
                     className='header-user-avatar'
                     alt='User'
+                    referrerPolicy='no-referrer'
+                    onError={(e) => {
+                      e.currentTarget.src = getAvatarUrl(
+                        "avataaars",
+                        session.user.user_metadata?.full_name || "user",
+                      );
+                    }}
                   />
                 ) : (
                   <div className='header-user-avatar avatar-placeholder'>
