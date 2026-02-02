@@ -1,7 +1,6 @@
 from sqlmodel import Field, SQLModel, Relationship
 from typing import List, Optional
 from datetime import datetime
-import uuid  # 👈 ВАЖНО: Импортируем UUID для работы с Auth
 
 # 1. Личности (Макс, Лия и т.д.)
 
@@ -20,7 +19,7 @@ class Personality(SQLModel, table=True):
     is_custom: bool = Field(default=True)
 
     # Кто создал этого бота? (Если None — значит создал Админ/Система)
-    owner_id: Optional[uuid.UUID] = Field(default=None, index=True)
+    owner_id: Optional[str] = Field(default=None, index=True)
 
 # 3. Контейнер для чата (Сессия диалога)
 

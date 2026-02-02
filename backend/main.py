@@ -20,14 +20,21 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Vibe Buddy API", version="7.1.0", lifespan=lifespan)
 
 # --- НАСТРОЙКА CORS ---
-origins = ["http://localhost:5173", "https://vibe-buddy.vercel.app", "*"]
+origins = [
+    "http://localhost:5173",
+    "https://vibe-buddy.vercel.app",
+    "https://web.telegram.org",
+    "https://t.me",
+]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"]
+    allow_headers=["*"],
 )
+
 
 # --- DTOs (Схемы данных) ---
 
