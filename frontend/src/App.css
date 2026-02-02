@@ -135,7 +135,7 @@ header {
   background: #1c1c1e;
   border-bottom: 1px solid var(--border-color);
   box-sizing: border-box;
-  padding-top: calc(var(--content-safe-top, 0px) + 8px);
+  padding-top: max(env(safe-area-inset-top), calc(var(--content-safe-top, 0px) + 40px), 20px);
   padding-left: 15px;
   padding-right: 15px;
   transition: padding-top 0.2s ease;
@@ -1583,5 +1583,8 @@ header {
 }
 
 footer.input-area {
-  padding-bottom: calc(var(--safe-bottom, 0px) + 12px);
+  padding-bottom: max(env(safe-area-inset-bottom), var(--safe-bottom, 0px), 15px);
+    padding-top: 10px;
+    padding-left: 15px;
+    padding-right: 15px;
 }

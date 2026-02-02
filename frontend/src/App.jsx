@@ -74,7 +74,7 @@ function App() {
     if (tg) {
       tg.ready();
 
-      // 1. Полноэкранный режим
+      // 1. Полноэкранный режим (пусть будет, раз уже написали)
       try {
         if (tg.isVersionAtLeast("8.0") && tg.requestFullscreen) {
           tg.requestFullscreen();
@@ -87,7 +87,7 @@ function App() {
 
       tg.isVerticalSwipesEnabled = false;
 
-      // 2. Цвета темы
+      // 2. Цвета и CSS Root
       const tp = tg.themeParams;
       tg.setHeaderColor(tp.header_bg_color || "#1a1a1a");
       tg.setBackgroundColor(tp.bg_color || "#1a1a1a");
@@ -95,18 +95,15 @@ function App() {
       const root = document.documentElement;
       root.style.setProperty("--tg-bg", tp.bg_color);
       root.style.setProperty("--tg-text", tp.text_color);
-      root.style.setProperty("--tg-hint", tp.hint_color);
-      root.style.setProperty("--tg-accent", tp.button_color);
-      root.style.setProperty("--tg-secondary-bg", tp.secondary_bg_color);
 
-      // 3. ТВОЁ РЕШЕНИЕ: Динамическая высота вьюпорта
+      // 3. Динамическая высота (твоё решение)
       const applyViewportHeight = () => {
         if (tg.viewportHeight) {
           root.style.setProperty("--tg-vh", `${tg.viewportHeight * 0.01}px`);
         }
       };
 
-      // 4. Безопасные зоны
+      // 4. Безопасные отступы
       const applySafeAreas = () => {
         const top = tg.safeAreaInset?.top || 0;
         const bottom = tg.safeAreaInset?.bottom || 0;
@@ -117,11 +114,9 @@ function App() {
         root.style.setProperty("--content-safe-top", `${contentTop}px`);
       };
 
-      // Инициализация
       applyViewportHeight();
       applySafeAreas();
 
-      // Подписки на события
       tg.onEvent("viewportChanged", applyViewportHeight);
       tg.onEvent("safeAreaChanged", applySafeAreas);
       tg.onEvent("contentSafeAreaChanged", applySafeAreas);
@@ -129,14 +124,10 @@ function App() {
       // 5. Сессия
       if (tg.initDataUnsafe?.user) {
         const u = tg.initDataUnsafe.user;
-        const displayName = u.username
-          ? `@${u.username}`
-          : `${u.first_name} ${u.last_name || ""}`.trim();
-
         setSession({
           user: {
             id: `tg-${u.id}`,
-            email: displayName,
+            email: u.username ? `@${u.username}` : `${u.first_name}`,
             user_metadata: {
               full_name: u.first_name,
               avatar_url: u.photo_url || null,
@@ -145,7 +136,6 @@ function App() {
         });
       }
 
-      // Чистка
       return () => {
         tg.offEvent("viewportChanged", applyViewportHeight);
         tg.offEvent("safeAreaChanged", applySafeAreas);
