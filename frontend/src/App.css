@@ -137,6 +137,9 @@ header {
   background: #1c1c1e;
   border-bottom: 1px solid var(--border-color);
   box-sizing: border-box;
+  padding-top: calc(var(--safe-top, 10px) + 5px);
+  padding-left: 15px;
+  padding-right: 15px;
 }
 
 .header-left,

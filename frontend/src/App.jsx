@@ -53,13 +53,21 @@ function App() {
     return date.toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
   };
 
-  // --- 1. ТЕЛЕГРАМ: НАСТРОЙКА И ТЕМА ---
+  // --- 1. ТЕЛЕГРАМ: НАСТРОЙКА, ТЕМА И ПОЛНЫЙ ЭКРАН ---
   useEffect(() => {
     if (tg) {
       tg.ready();
-      tg.expand();
+
+      // Пытаемся включить True Fullscreen (Immersive Mode)
+      if (tg.requestFullscreen) {
+        tg.requestFullscreen();
+      } else {
+        tg.expand();
+      }
+
       tg.isVerticalSwipesEnabled = false;
 
+      // Синхронизация темы
       const tp = tg.themeParams;
       tg.setHeaderColor(tp.header_bg_color || "#1a1a1a");
       tg.setBackgroundColor(tp.bg_color || "#1a1a1a");
@@ -71,9 +79,18 @@ function App() {
       root.style.setProperty("--tg-accent", tp.button_color);
       root.style.setProperty("--tg-secondary-bg", tp.secondary_bg_color);
 
+      // НОВОЕ: Обработка безопасных зон (Safe Areas) для полноэкранного режима
+      // Это нужно, чтобы контент не перекрывался "челкой" или статус-баром
+      const updateSafeAreas = () => {
+        if (tg.safeAreaInset) {
+          root.style.setProperty("--safe-top", `${tg.safeAreaInset.top}px`);
+          root.style.setProperty("--safe-bottom", `${tg.safeAreaInset.bottom}px`);
+        }
+      };
+      updateSafeAreas();
+
       if (tg.initDataUnsafe?.user) {
         const u = tg.initDataUnsafe.user;
-        // Формируем красивое отображение имени
         const displayName = u.username
           ? `@${u.username}`
           : `${u.first_name} ${u.last_name || ""}`.trim();
@@ -81,10 +98,10 @@ function App() {
         setSession({
           user: {
             id: `tg-${u.id}`,
-            email: displayName, // Пойдет в профиль
+            email: displayName,
             user_metadata: {
               full_name: u.first_name,
-              avatar_url: u.photo_url || null, // Твоя аватарка из TG 🖼
+              avatar_url: u.photo_url || null,
             },
           },
         });

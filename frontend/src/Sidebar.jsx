@@ -256,7 +256,7 @@ const Sidebar = ({
             </div>
 
             <div className='sidebar-footer'>
-              <div className='app-version'>Vibe Buddy v0.29</div>
+              <div className='app-version'>Vibe Buddy v0.89</div>
             </div>
           </motion.div>
         </>
