@@ -12,7 +12,6 @@ import "./App.css";
 const API_URL = import.meta.env.VITE_API_URL;
 const tg = window.Telegram?.WebApp; // SDK Телеграма
 
-// Вспомогательный компонент уведомлений
 const Toast = ({ message, type, onClose }) => (
   <motion.div
     initial={{ y: 50, opacity: 0, x: "-50%" }}
@@ -28,18 +27,13 @@ const Toast = ({ message, type, onClose }) => (
 );
 
 function App() {
-  // --- 1. СОСТОЯНИЕ (STATE) ---
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [session, setSession] = useState(null);
-
-  // Данные персонажей
   const [personalities, setPersonalities] = useState([]);
   const [personalityId, setPersonalityId] = useState(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
-
-  // Состояния интерфейса
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLabOpen, setIsLabOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -47,33 +41,57 @@ function App() {
 
   const messagesEndRef = useRef(null);
 
-  // --- 2. ЭФФЕКТЫ (EFFECTS) ---
-
-  // Инициализация Telegram SDK
+  // --- 1. ТЕЛЕГРАМ: НАСТРОЙКА И ТЕМА ---
   useEffect(() => {
     if (tg) {
       tg.ready();
       tg.expand();
-      tg.setHeaderColor(tg.themeParams.header_bg_color || "#1a1a1a");
+      tg.isVerticalSwipesEnabled = false; // Чтобы приложение не закрывалось свайпом вниз
+
+      // Синхронизация цветов темы
+      const root = document.documentElement;
+      const tp = tg.themeParams;
+      tg.setHeaderColor(tp.header_bg_color || "#1a1a1a");
+      tg.setBackgroundColor(tp.bg_color || "#1a1a1a");
+
+      root.style.setProperty("--tg-bg", tp.bg_color);
+      root.style.setProperty("--tg-text", tp.text_color);
+      root.style.setProperty("--tg-hint", tp.hint_color);
+      root.style.setProperty("--tg-accent", tp.button_color);
+      root.style.setProperty("--tg-secondary-bg", tp.secondary_bg_color);
+
+      // Авто-логин через Telegram данные
+      if (tg.initDataUnsafe?.user) {
+        const u = tg.initDataUnsafe.user;
+        setSession({
+          user: {
+            id: `tg-${u.id}`,
+            email: u.username ? `@${u.username}` : "TG User",
+            user_metadata: {
+              full_name: u.first_name,
+              avatar_url: u.photo_url,
+            },
+          },
+        });
+      }
     }
   }, []);
 
-  // Слушатель авторизации Supabase
+  // --- 2. АВТОРИЗАЦИЯ SUPABASE (Для веба) ---
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (!session) {
-        setPersonalityId(null);
-        setMessages([]);
-      }
-    });
-    return () => subscription.unsubscribe();
+    if (!tg?.initDataUnsafe?.user) {
+      supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((_event, session) => {
+        setSession(session);
+        if (!session) setPersonalityId(null);
+      });
+      return () => subscription.unsubscribe();
+    }
   }, []);
 
-  // Загрузка списка "бро"
+  // --- 3. ЗАГРУЗКА ДАННЫХ ---
   useEffect(() => {
     const fetchPersonalities = async () => {
       try {
@@ -85,7 +103,7 @@ function App() {
         const data = await res.json();
         setPersonalities(data);
       } catch (e) {
-        console.error("Ошибка загрузки списка:", e);
+        console.error(e);
       } finally {
         setIsInitialLoading(false);
       }
@@ -93,61 +111,36 @@ function App() {
     fetchPersonalities();
   }, [session]);
 
-  // Загрузка истории (Сервер или LocalStorage)
   useEffect(() => {
     const fetchHistory = async () => {
-      if (!personalityId) return;
-      const userId = session?.user?.id;
-
-      if (userId) {
-        try {
-          const res = await fetch(
-            `${API_URL}/messages?personality_id=${personalityId}&user_id=${userId}`,
-          );
-          const data = await res.json();
-          setMessages(
-            data.map((msg) => ({
-              role: msg.role === "assistant" ? "model" : msg.role,
-              parts: msg.parts,
-              theme: msg.theme,
-              time: formatTime(msg.time),
-              timestamp: msg.time,
-            })),
-          );
-        } catch (e) {
-          console.error("Ошибка истории:", e);
-        }
-      } else {
-        const local = localStorage.getItem(`guest_history_${personalityId}`);
-        setMessages(local ? JSON.parse(local) : []);
+      if (!personalityId || !session?.user?.id) return;
+      try {
+        const res = await fetch(
+          `${API_URL}/messages?personality_id=${personalityId}&user_id=${session.user.id}`,
+        );
+        const data = await res.json();
+        setMessages(
+          data.map((msg) => ({
+            role: msg.role === "assistant" ? "model" : msg.role,
+            parts: msg.parts,
+            theme: msg.theme,
+            time: formatTime(msg.time),
+            timestamp: msg.time,
+          })),
+        );
+      } catch (e) {
+        console.error(e);
       }
     };
     fetchHistory();
   }, [personalityId, session]);
 
-  // Скролл вниз
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.parentElement.scrollTop =
-        messagesEndRef.current.parentElement.scrollHeight;
-    }
-  }, [messages, isLoading]);
-
-  // --- 3. ЛОГИКА (HANDLERS) ---
-
-  const showToast = (message, type = "success") => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setIsProfileOpen(false);
-    showToast("Вы вышли из системы", "info");
-  };
-
+  // --- 4. ЛОГИКА ОТПРАВКИ И ТАКТИЛЬНОСТЬ ---
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
+
+    // Вибро-отклик (Medium)
+    if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred("medium");
 
     const now = new Date().toISOString();
     const userMsg = { role: "user", parts: [input], time: formatTime(now), timestamp: now };
@@ -156,10 +149,6 @@ function App() {
     setMessages(newMessages);
     setInput("");
     setIsLoading(true);
-
-    if (!session?.user?.id) {
-      localStorage.setItem(`guest_history_${personalityId}`, JSON.stringify(newMessages));
-    }
 
     try {
       const res = await fetch(`${API_URL}/chat`, {
@@ -173,22 +162,18 @@ function App() {
       });
 
       const data = await res.json();
-      const aiTime = new Date().toISOString();
+
+      // Вибро-отклик (Success)
+      if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred("success");
+
       const aiMsg = {
         role: "model",
         parts: [data.text],
         theme: data.visual_hint,
-        time: formatTime(aiTime),
-        timestamp: aiTime,
+        time: formatTime(new Date().toISOString()),
+        timestamp: new Date().toISOString(),
       };
-
       setMessages((prev) => [...prev, aiMsg]);
-      if (!session?.user?.id) {
-        localStorage.setItem(
-          `guest_history_${personalityId}`,
-          JSON.stringify([...newMessages, aiMsg]),
-        );
-      }
     } catch (e) {
       showToast("Ошибка связи с ИИ", "danger");
     } finally {
@@ -196,9 +181,38 @@ function App() {
     }
   };
 
-  // --- 4. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
+  // Системная кнопка Telegram (MainButton)
+  useEffect(() => {
+    if (tg?.MainButton) {
+      if (input.trim() && personalityId && !isLoading) {
+        tg.MainButton.setText("ОТПРАВИТЬ");
+        tg.MainButton.show();
+      } else {
+        tg.MainButton.hide();
+      }
+    }
+  }, [input, personalityId, isLoading]);
+
+  useEffect(() => {
+    const handleMainBtn = () => sendMessage();
+    tg?.MainButton?.onClick(handleMainBtn);
+    return () => tg?.MainButton?.offClick(handleMainBtn);
+  }, [input, messages]);
+
+  // --- Вспомогательное ---
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.parentElement.scrollTop =
+        messagesEndRef.current.parentElement.scrollHeight;
+    }
+  }, [messages, isLoading]);
+
   const formatTime = (iso) =>
     new Date(iso || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const showToast = (m, t = "success") => {
+    setToast({ message: m, type: t });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const getAvatarUrl = (avatarStr, name) => {
     if (avatarStr?.includes(":")) {
@@ -210,7 +224,6 @@ function App() {
 
   const currentPersona = personalities.find((p) => p.id === personalityId);
 
-  // --- 5. РЕНДЕР (UI) ---
   return (
     <div className='chat-container'>
       <header>
@@ -221,7 +234,6 @@ function App() {
         >
           <h1 className='header-title'>VibeBuddy</h1>
         </div>
-
         <div className='header-center'>
           <AnimatePresence mode='wait'>
             {currentPersona && (
@@ -242,7 +254,6 @@ function App() {
             )}
           </AnimatePresence>
         </div>
-
         <div className='header-right'>
           {session?.user && (
             <div className='profile-section'>
@@ -264,7 +275,6 @@ function App() {
                   </div>
                 )}
               </div>
-
               <AnimatePresence>
                 {isProfileOpen && (
                   <>
@@ -278,7 +288,13 @@ function App() {
                       <div className='profile-email-container'>
                         <p className='profile-email-text'>{session.user.email}</p>
                       </div>
-                      <button className='header-profile-item danger' onClick={handleLogout}>
+                      <button
+                        className='header-profile-item danger'
+                        onClick={() => {
+                          supabase.auth.signOut();
+                          setIsProfileOpen(false);
+                        }}
+                      >
                         <LogOut size={16} /> Выйти
                       </button>
                     </motion.div>
@@ -296,14 +312,9 @@ function App() {
       <main className='messages-list'>
         <AnimatePresence mode='wait'>
           {!personalityId ? (
-            <WelcomeScreen
-              key='welcome'
-              onOpenSidebar={() => setIsMenuOpen(true)}
-              isLoading={isInitialLoading}
-            />
+            <WelcomeScreen onOpenSidebar={() => setIsMenuOpen(true)} isLoading={isInitialLoading} />
           ) : (
             <motion.div
-              key='chat'
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className='chat-sub-container'
@@ -322,7 +333,11 @@ function App() {
               ))}
               {isLoading && (
                 <div className='message-bubble ai loading'>
-                  <Loader2 size={16} className='spin' />
+                  <div className='typing-indicator'>
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
                 </div>
               )}
             </motion.div>
@@ -337,7 +352,7 @@ function App() {
           onChange={(e) => setInput(e.target.value)}
           disabled={!personalityId}
           onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-          placeholder={personalityId ? "Напиши бро..." : "Выбери друга в меню"}
+          placeholder='Напиши бро...'
         />
         <button
           className='send-btn'
@@ -364,13 +379,9 @@ function App() {
         }}
         onClearHistory={(id) => {
           if (window.confirm("Очистить историю?")) {
-            if (session?.user?.id) {
-              fetch(`${API_URL}/messages?personality_id=${id}&user_id=${session.user.id}`, {
-                method: "DELETE",
-              });
-            } else {
-              localStorage.removeItem(`guest_history_${id}`);
-            }
+            fetch(`${API_URL}/messages?personality_id=${id}&user_id=${session?.user?.id}`, {
+              method: "DELETE",
+            });
             setMessages([]);
             showToast("История очищена 🧹");
           }

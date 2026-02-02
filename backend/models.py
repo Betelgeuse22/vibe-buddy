@@ -33,7 +33,7 @@ class Conversation(SQLModel, table=True):
 
     # 🔒 Чей это диалог?
     # Только этот юзер может видеть этот чат
-    user_id: uuid.UUID = Field(index=True)
+    user_id: str = Field(index=True)
     summary: Optional[str] = Field(default=None)
 
 # 2. История сообщений
@@ -55,4 +55,4 @@ class Message(SQLModel, table=True):
 
     # 🔒 Дублируем владельца для быстрого доступа и RLS (Row Level Security)
     # Это позволит базе данных мгновенно отсекать чужие сообщения
-    user_id: uuid.UUID = Field(index=True)
+    user_id: str = Field(index=True)
