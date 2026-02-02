@@ -53,27 +53,35 @@ function App() {
     return date.toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
   };
 
+  function setVh() {
+    const vh = window.innerHeight * 0.01;
+    document.documentElement.style.setProperty("--vh", `${vh}px`);
+  }
+
+  setVh();
+  window.addEventListener("resize", setVh);
+
   // --- 1. ТЕЛЕГРАМ: НАСТРОЙКА, ТЕМА И ПОЛНЫЙ ЭКРАН ---
   useEffect(() => {
     if (tg) {
       tg.ready();
 
-      // Безопасная проверка версии перед вызовом Fullscreen
+      // 1. Включаем полноэкранный режим (для версий 8.0+)
       try {
         if (tg.isVersionAtLeast("8.0") && tg.requestFullscreen) {
           tg.requestFullscreen();
         } else {
-          tg.expand(); // Старый добрый метод для версий пониже
+          tg.expand();
         }
       } catch (err) {
-        console.warn("Fullscreen не поддерживается, используем expand");
         tg.expand();
       }
 
       tg.isVerticalSwipesEnabled = false;
 
+      // 2. Настройка цветов (смешиваем статус-бар с фоном приложения)
       const tp = tg.themeParams;
-      tg.setHeaderColor(tp.header_bg_color || "#1a1a1a");
+      tg.setHeaderColor(tp.header_bg_color || "#1a1a1a"); //
       tg.setBackgroundColor(tp.bg_color || "#1a1a1a");
 
       const root = document.documentElement;
@@ -83,16 +91,26 @@ function App() {
       root.style.setProperty("--tg-accent", tp.button_color);
       root.style.setProperty("--tg-secondary-bg", tp.secondary_bg_color);
 
-      // Безопасная установка отступов
-      const updateSafeAreas = () => {
-        // В версии 6.0 safeAreaInset не существует, поэтому ставим 0
+      // 3. Ультимативная функция для безопасных зон
+      const applySafeAreas = () => {
+        // safeAreaInset - зона системных индикаторов (часы, заряд)
         const top = tg.safeAreaInset?.top || 0;
         const bottom = tg.safeAreaInset?.bottom || 0;
+
+        // contentSafeAreaInset - зона, свободная от кнопок Telegram (Закрыть, Меню)
+        const contentTop = tg.contentSafeAreaInset?.top || 0;
+
         root.style.setProperty("--safe-top", `${top}px`);
         root.style.setProperty("--safe-bottom", `${bottom}px`);
+        root.style.setProperty("--content-safe-top", `${contentTop}px`);
       };
-      updateSafeAreas();
 
+      // Вызываем сразу и подписываемся на изменения (смена ориентации, скрытие панелей)
+      applySafeAreas();
+      tg.onEvent("safeAreaChanged", applySafeAreas); //
+      tg.onEvent("contentSafeAreaChanged", applySafeAreas);
+
+      // 4. Логика сессии
       if (tg.initDataUnsafe?.user) {
         const u = tg.initDataUnsafe.user;
         const displayName = u.username
@@ -110,8 +128,15 @@ function App() {
           },
         });
       }
+
+      // Чистим слушатели при размонтировании
+      return () => {
+        tg.offEvent("safeAreaChanged", applySafeAreas);
+        tg.offEvent("contentSafeAreaChanged", applySafeAreas);
+      };
     }
   }, []);
+
   // --- 2. АВТОРИЗАЦИЯ SUPABASE (Для веба) ---
   useEffect(() => {
     // Если мы в Telegram — мы "выселяем" Supabase из памяти,

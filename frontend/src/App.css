@@ -137,9 +137,10 @@ header {
   background: #1c1c1e;
   border-bottom: 1px solid var(--border-color);
   box-sizing: border-box;
-  padding-top: calc(var(--safe-top, 10px) + 5px);
+  padding-top: calc(var(--content-safe-top, 0px) + 8px);
   padding-left: 15px;
   padding-right: 15px;
+  transition: padding-top 0.2s ease;
 }
 
 .header-left,
@@ -1581,4 +1582,8 @@ header {
   border: none;
   color: rgba(255, 255, 255, 0.5);
   cursor: pointer;
+}
+
+footer.input-area {
+  padding-bottom: calc(var(--safe-bottom, 0px) + 12px);
 }
