@@ -765,6 +765,28 @@ header {
    6. СПИСОК СООБЩЕНИЙ
    ========================================================================== */
 
+     .date-divider {
+       display: flex;
+       justify-content: center;
+       align-items: center;
+       margin: 16px 0;
+       width: 100%;
+       pointer-events: none;
+       /* Чтобы не мешала скроллу */
+     }
+  
+     .date-divider span {
+       background: rgba(255, 255, 255, 0.08);
+       /* Светлый полупрозрачный фон */
+       color: var(--tg-hint, #8e8e93);
+       padding: 4px 12px;
+       border-radius: 10px;
+       font-size: 11px;
+       font-weight: 500;
+       backdrop-filter: blur(4px);
+       /* Эффект стекла */
+     }
+
 .messages-list {
   grid-area: messages;
   padding: 20px;

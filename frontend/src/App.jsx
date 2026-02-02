@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, SendHorizonal, Loader2, X as CloseIcon, LogOut } from "lucide-react";
+import { Menu, SendHorizonal, X as CloseIcon, LogOut } from "lucide-react";
 import { supabase } from "./supabaseClient";
 
 // Наши компоненты
@@ -40,6 +40,18 @@ function App() {
   const [toast, setToast] = useState(null);
 
   const messagesEndRef = useRef(null);
+
+  const getDateLabel = (isoString) => {
+    const date = new Date(isoString);
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) return "Сегодня";
+    if (date.toDateString() === yesterday.toDateString()) return "Вчера";
+
+    return date.toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
+  };
 
   // --- 1. ТЕЛЕГРАМ: НАСТРОЙКА И ТЕМА ---
   useEffect(() => {
@@ -362,18 +374,33 @@ function App() {
               animate={{ opacity: 1 }}
               className='chat-sub-container'
             >
-              {messages.map((msg, i) => (
-                <div
-                  key={i}
-                  className={`message-bubble ${msg.role === "user" ? "user" : "ai"}`}
-                  style={msg.role === "model" ? { borderLeft: `4px solid ${msg.theme}` } : {}}
-                >
-                  <div className='text-content'>{msg.parts[0]}</div>
-                  <div className='message-footer'>
-                    <span className='message-time'>{msg.time}</span>
-                  </div>
-                </div>
-              ))}
+              {messages.map((msg, i) => {
+                // Логика определения разделителя
+                const msgDate = new Date(msg.timestamp).toDateString();
+                const prevMsgDate =
+                  i > 0 ? new Date(messages[i - 1].timestamp).toDateString() : null;
+                const isNewDay = msgDate !== prevMsgDate;
+
+                return (
+                  <React.Fragment key={i}>
+                    {isNewDay && (
+                      <div className='date-divider'>
+                        <span>{getDateLabel(msg.timestamp)}</span>
+                      </div>
+                    )}
+
+                    <div
+                      className={`message-bubble ${msg.role === "user" ? "user" : "ai"}`}
+                      style={msg.role === "model" ? { borderLeft: `4px solid ${msg.theme}` } : {}}
+                    >
+                      <div className='text-content'>{msg.parts[0]}</div>
+                      <div className='message-footer'>
+                        <span className='message-time'>{msg.time}</span>
+                      </div>
+                    </div>
+                  </React.Fragment>
+                );
+              })}
               {isLoading && (
                 <div className='message-bubble ai loading'>
                   <div className='typing-indicator'>
