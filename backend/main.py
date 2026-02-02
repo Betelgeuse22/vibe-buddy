@@ -68,6 +68,45 @@ def get_personalities(user_id: Optional[str] = None, db: Session = Depends(get_s
     )
     return db.exec(query).all()
 
+
+@app.post("/personalities")
+def create_personality(item: PersonalityCreate, db: Session = Depends(get_session)):
+    try:
+        # Создаем объект модели для базы данных
+        new_persona = Personality.model_validate(item)
+
+        # Гарантируем, что ID владельца — строка (на всякий случай)
+        if new_persona.owner_id:
+            new_persona.owner_id = str(new_persona.owner_id)
+
+        db.add(new_persona)
+        db.commit()
+        db.refresh(new_persona)
+
+        print(
+            f"✅ Создан новый персонаж: {new_persona.name} для {new_persona.owner_id}")
+        return new_persona
+
+    except Exception as e:
+        db.rollback()  # Откатываем изменения, если что-то пошло не так
+        print(f"❌ Ошибка при создании персонажа: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Database error: {str(e)}")
+
+
+@app.delete("/personalities/{p_id}")
+def delete_personality(p_id: int, db: Session = Depends(get_session)):
+    personality = db.get(Personality, p_id)
+    if not personality:
+        raise HTTPException(status_code=404, detail="Персонаж не найден")
+
+    # Также удаляем все сообщения, связанные с этим персонажем
+    db.exec(delete(Message).where(Message.personality_id == p_id))
+
+    db.delete(personality)
+    db.commit()
+    return {"status": "deleted"}
+
 # --- ЭНДПОИНТЫ: ЧАТ И ПАМЯТЬ ---
 
 

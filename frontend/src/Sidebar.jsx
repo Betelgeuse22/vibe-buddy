@@ -45,6 +45,8 @@ const Sidebar = ({
     setActiveMenu(null);
   };
 
+  const tg = window.Telegram?.WebApp;
+
   // Логика входа
   const handleGoogleLogin = async () => {
     await supabase.auth.signInWithOAuth({
@@ -119,10 +121,15 @@ const Sidebar = ({
                         <span className='user-email'>{session.user.email}</span>
                       </div>
                     </div>
-                    <button className='logout-btn' onClick={handleLogout}>
+                    {!tg?.initDataUnsafe?.user && (
+                      <button className='logout-btn' onClick={handleLogout}>
+                        <LogOut size={14} /> Выйти
+                      </button>
+                    )}
+                    {/* <button className='logout-btn' onClick={handleLogout}>
                       <LogOut size={14} />
                       Выйти
-                    </button>
+                    </button> */}
                   </div>
                 )}
               </div>

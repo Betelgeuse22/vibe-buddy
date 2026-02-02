@@ -10,7 +10,7 @@ import WelcomeScreen from "./WelcomeScreen";
 import "./App.css";
 
 const API_URL = import.meta.env.VITE_API_URL;
-const tg = window.Telegram?.WebApp; // SDK Телеграма
+const tg = window.Telegram?.WebApp;
 
 const Toast = ({ message, type, onClose }) => (
   <motion.div
@@ -46,30 +46,33 @@ function App() {
     if (tg) {
       tg.ready();
       tg.expand();
-      tg.isVerticalSwipesEnabled = false; // Чтобы приложение не закрывалось свайпом вниз
+      tg.isVerticalSwipesEnabled = false;
 
-      // Синхронизация цветов темы
-      const root = document.documentElement;
       const tp = tg.themeParams;
       tg.setHeaderColor(tp.header_bg_color || "#1a1a1a");
       tg.setBackgroundColor(tp.bg_color || "#1a1a1a");
 
+      const root = document.documentElement;
       root.style.setProperty("--tg-bg", tp.bg_color);
       root.style.setProperty("--tg-text", tp.text_color);
       root.style.setProperty("--tg-hint", tp.hint_color);
       root.style.setProperty("--tg-accent", tp.button_color);
       root.style.setProperty("--tg-secondary-bg", tp.secondary_bg_color);
 
-      // Авто-логин через Telegram данные
       if (tg.initDataUnsafe?.user) {
         const u = tg.initDataUnsafe.user;
+        // Формируем красивое отображение имени
+        const displayName = u.username
+          ? `@${u.username}`
+          : `${u.first_name} ${u.last_name || ""}`.trim();
+
         setSession({
           user: {
             id: `tg-${u.id}`,
-            email: u.username ? `@${u.username}` : "TG User",
+            email: displayName, // Пойдет в профиль
             user_metadata: {
               full_name: u.first_name,
-              avatar_url: u.photo_url,
+              avatar_url: u.photo_url, // Твоя аватарка из TG 🖼
             },
           },
         });
@@ -135,11 +138,16 @@ function App() {
     fetchHistory();
   }, [personalityId, session]);
 
-  // --- 4. ЛОГИКА ОТПРАВКИ И ТАКТИЛЬНОСТЬ ---
+  // --- 4. ЛОГИКА ОЖИДАНИЯ (Artificial Latency) ---
+  const simulateTypingDelay = (text) => {
+    // Базовая секунда + 30мс за символ, но не более 3 секунд
+    const delay = Math.min(1000 + text.length * 30, 3000);
+    return new Promise((resolve) => setTimeout(resolve, delay));
+  };
+
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
 
-    // Вибро-отклик (Medium)
     if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred("medium");
 
     const now = new Date().toISOString();
@@ -163,7 +171,9 @@ function App() {
 
       const data = await res.json();
 
-      // Вибро-отклик (Success)
+      // Ждем, пока "пропечатает" 🤖
+      await simulateTypingDelay(data.text);
+
       if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred("success");
 
       const aiMsg = {
@@ -181,7 +191,7 @@ function App() {
     }
   };
 
-  // Системная кнопка Telegram (MainButton)
+  // --- 5. ТЕЛЕГРАМ: MAIN BUTTON ---
   useEffect(() => {
     if (tg?.MainButton) {
       if (input.trim() && personalityId && !isLoading) {
@@ -199,7 +209,7 @@ function App() {
     return () => tg?.MainButton?.offClick(handleMainBtn);
   }, [input, messages]);
 
-  // --- Вспомогательное ---
+  // --- ВСПОМОГАТЕЛЬНОЕ ---
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.parentElement.scrollTop =
@@ -209,6 +219,7 @@ function App() {
 
   const formatTime = (iso) =>
     new Date(iso || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
   const showToast = (m, t = "success") => {
     setToast({ message: m, type: t });
     setTimeout(() => setToast(null), 3000);
@@ -288,15 +299,17 @@ function App() {
                       <div className='profile-email-container'>
                         <p className='profile-email-text'>{session.user.email}</p>
                       </div>
-                      <button
-                        className='header-profile-item danger'
-                        onClick={() => {
-                          supabase.auth.signOut();
-                          setIsProfileOpen(false);
-                        }}
-                      >
-                        <LogOut size={16} /> Выйти
-                      </button>
+                      {!tg?.initDataUnsafe?.user && (
+                        <button
+                          className='header-profile-item danger'
+                          onClick={() => {
+                            supabase.auth.signOut();
+                            setIsProfileOpen(false);
+                          }}
+                        >
+                          <LogOut size={16} /> Выйти
+                        </button>
+                      )}
                     </motion.div>
                   </>
                 )}
@@ -384,6 +397,20 @@ function App() {
             });
             setMessages([]);
             showToast("История очищена 🧹");
+          }
+        }}
+        onDeletePersona={async (id) => {
+          if (window.confirm("Удалить этого бро навсегда?")) {
+            try {
+              const res = await fetch(`${API_URL}/personalities/${id}`, { method: "DELETE" });
+              if (res.ok) {
+                setPersonalities((prev) => prev.filter((p) => p.id !== id));
+                if (personalityId === id) setPersonalityId(null);
+                showToast("Персонаж удален", "info");
+              }
+            } catch (e) {
+              showToast("Не удалось удалить", "danger");
+            }
           }
         }}
         getAvatarUrl={getAvatarUrl}
