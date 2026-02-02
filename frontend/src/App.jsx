@@ -58,16 +58,20 @@ function App() {
     if (tg) {
       tg.ready();
 
-      // Пытаемся включить True Fullscreen (Immersive Mode)
-      if (tg.requestFullscreen) {
-        tg.requestFullscreen();
-      } else {
+      // Безопасная проверка версии перед вызовом Fullscreen
+      try {
+        if (tg.isVersionAtLeast("8.0") && tg.requestFullscreen) {
+          tg.requestFullscreen();
+        } else {
+          tg.expand(); // Старый добрый метод для версий пониже
+        }
+      } catch (err) {
+        console.warn("Fullscreen не поддерживается, используем expand");
         tg.expand();
       }
 
       tg.isVerticalSwipesEnabled = false;
 
-      // Синхронизация темы
       const tp = tg.themeParams;
       tg.setHeaderColor(tp.header_bg_color || "#1a1a1a");
       tg.setBackgroundColor(tp.bg_color || "#1a1a1a");
@@ -79,13 +83,13 @@ function App() {
       root.style.setProperty("--tg-accent", tp.button_color);
       root.style.setProperty("--tg-secondary-bg", tp.secondary_bg_color);
 
-      // НОВОЕ: Обработка безопасных зон (Safe Areas) для полноэкранного режима
-      // Это нужно, чтобы контент не перекрывался "челкой" или статус-баром
+      // Безопасная установка отступов
       const updateSafeAreas = () => {
-        if (tg.safeAreaInset) {
-          root.style.setProperty("--safe-top", `${tg.safeAreaInset.top}px`);
-          root.style.setProperty("--safe-bottom", `${tg.safeAreaInset.bottom}px`);
-        }
+        // В версии 6.0 safeAreaInset не существует, поэтому ставим 0
+        const top = tg.safeAreaInset?.top || 0;
+        const bottom = tg.safeAreaInset?.bottom || 0;
+        root.style.setProperty("--safe-top", `${top}px`);
+        root.style.setProperty("--safe-bottom", `${bottom}px`);
       };
       updateSafeAreas();
 
@@ -108,7 +112,6 @@ function App() {
       }
     }
   }, []);
-
   // --- 2. АВТОРИЗАЦИЯ SUPABASE (Для веба) ---
   useEffect(() => {
     // Если мы в Telegram — мы "выселяем" Supabase из памяти,
