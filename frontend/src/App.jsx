@@ -82,16 +82,29 @@ function App() {
 
   // --- 2. АВТОРИЗАЦИЯ SUPABASE (Для веба) ---
   useEffect(() => {
-    if (!tg?.initDataUnsafe?.user) {
-      supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange((_event, session) => {
-        setSession(session);
-        if (!session) setPersonalityId(null);
-      });
-      return () => subscription.unsubscribe();
+    // Если мы в Telegram — мы "выселяем" Supabase из памяти,
+    // чтобы он не пытался реанимировать старые сессии Google
+    if (tg?.initDataUnsafe?.user) {
+      const clearSupabaseSession = async () => {
+        // Это очистит localStorage от битых токенов именно для этого домена
+        await supabase.auth.signOut();
+        console.log("🧹 Сессия Supabase очищена для режима Telegram");
+      };
+      clearSupabaseSession();
+      return; // Выходим и больше ничего не делаем в этом эффекте
     }
+
+    // Логика для веб-версии (Google Auth) остается прежней
+    supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (!session) setPersonalityId(null);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   // --- 3. ЗАГРУЗКА ДАННЫХ ---
