@@ -63,17 +63,18 @@ body {
    ========================================================================== */
 
 .chat-container {
-  position: relative;
+position: relative;
   display: grid;
+  /* Меняем 70px на auto, чтобы хедер мог расширяться под падинги */
   grid-template-areas:
     "header"
     "messages"
     "input";
-  grid-template-rows: 70px 1fr 90px;
+  grid-template-rows: auto 1fr 90px;
   grid-template-columns: 100%;
   width: 100%;
   max-width: 500px;
-  height: calc(var(--tg-vh, var(--vh, 1vh)) * 100);
+  height: calc(var(--tg-vh, 1vh) * 100);
   background: var(--bg-container);
   border: 1px solid var(--border-color);
   border-radius: 28px;
@@ -360,6 +361,21 @@ header {
   touch-action: pan-y;
   user-select: none;
   -webkit-user-select: none;
+}
+
+/* СТИЛИ SIDEBAR ДЛЯ ТЕЛЕГРАМА */
+body.is-tg .sidebar {
+  /* Добавляем отступ всему сайдбару сверху */
+  padding-top: calc(var(--safe-top, 0px) + 50px);
+}
+
+/* Если в Sidebar.jsx у тебя кнопка закрытия имеет класс menu-trigger-btn 
+   (как в твоем конфиге), то опускаем её именно внутри сайдбара */
+body.is-tg .sidebar .menu-trigger-btn {
+  position: absolute;
+  top: 20px;
+  /* Теперь это относительно нового padding-top сайдбара */
+  right: 20px;
 }
 
 .sidebar::before {
@@ -1594,9 +1610,14 @@ body:not(.is-tg) .chat-container {
 }
 
 body:not(.is-tg) header {
-  /* Твои исходные падинги для Хрома, которые тебя устраивали */
-  padding-top: 10px;
-  padding-bottom: 10px;
+height: 70px;
+  /* Оставляем как было для хрома */
+  padding: 10px 20px;
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
+  align-items: center;
+  background: #1c1c1e;
+  border-bottom: 1px solid var(--border-color);
 }
 .is-tg header {
   /* Опускаем заголовок ниже кнопок Закрыть/Меню */
@@ -1611,10 +1632,21 @@ body.is-tg .chat-container {
 }
 
 body.is-tg header {
-  /* Огромный отступ только для ТГ, чтобы уйти из-под кнопок и системной панели */
-  /* Берем безопасную зону ТГ + 35px запаса */
-  padding-top: calc(var(--content-safe-top, 0px) + 35px);
-  padding-bottom: 10px;
+  height: auto;
+    /* ВАЖНО: разрешаем хедеру быть выше */
+    min-height: 100px;
+    /* Опускаем контент в "зеленую зону". 
+       60px - это примерный запас, чтобы уйти ниже кнопок ТГ */
+    padding-top: calc(var(--content-safe-top, 0px) + 60px);
+    padding-bottom: 20px;
+    padding-left: 20px;
+    padding-right: 20px;
+  
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+    align-items: center;
+    background: #1c1c1e;
+    border-bottom: 1px solid var(--border-color);
 }
 
 /* Крестик сайдбара — опускаем только в ТГ */
@@ -1622,4 +1654,18 @@ body.is-tg .menu-trigger-btn {
   top: calc(var(--safe-top, 0px) + 40px);
   right: 20px;
   z-index: 9999;
+}
+
+body.is-tg .header-title {
+  font-size: 1.2rem;
+  /* Можно чуть увеличить, места теперь много */
+  margin-top: 5px;
+}
+
+body.is-tg .header-left,
+body.is-tg .header-right {
+  display: flex;
+  align-items: center;
+  /* Дополнительный сдвиг вниз, если иконки кажутся слишком высокими */
+  padding-top: 5px;
 }
