@@ -71,76 +71,69 @@ function App() {
 
   // --- 1. ТЕЛЕГРАМ: НАСТРОЙКА, ТЕМА И ПОЛНЫЙ ЭКРАН ---
   useEffect(() => {
-    if (tg) {
-      tg.ready();
+    // Проверяем: мы реально в Телеге или просто в браузере со скриптом?
+    const isActualTelegram = tg && tg.initData !== "";
 
-      // 1. Полноэкранный режим (пусть будет, раз уже написали)
+    if (isActualTelegram) {
+      tg.ready();
+      document.body.classList.add("is-tg"); // Вешаем метку только для ТГ
+
+      // 1. Fullscreen
       try {
-        if (tg.isVersionAtLeast("8.0") && tg.requestFullscreen) {
+        if (tg.isVersionAtLeast?.("8.0") && tg.requestFullscreen) {
           tg.requestFullscreen();
         } else {
           tg.expand();
         }
-      } catch (err) {
+      } catch (e) {
         tg.expand();
       }
 
       tg.isVerticalSwipesEnabled = false;
 
-      // 2. Цвета и CSS Root
+      // 2. Цвета и вьюпорт
       const tp = tg.themeParams;
       tg.setHeaderColor(tp.header_bg_color || "#1a1a1a");
-      tg.setBackgroundColor(tp.bg_color || "#1a1a1a");
-
       const root = document.documentElement;
-      root.style.setProperty("--tg-bg", tp.bg_color);
-      root.style.setProperty("--tg-text", tp.text_color);
 
-      // 3. Динамическая высота (твоё решение)
       const applyViewportHeight = () => {
         if (tg.viewportHeight) {
           root.style.setProperty("--tg-vh", `${tg.viewportHeight * 0.01}px`);
         }
       };
 
-      // 4. Безопасные отступы
       const applySafeAreas = () => {
-        const top = tg.safeAreaInset?.top || 0;
-        const bottom = tg.safeAreaInset?.bottom || 0;
-        const contentTop = tg.contentSafeAreaInset?.top || 0;
-
-        root.style.setProperty("--safe-top", `${top}px`);
-        root.style.setProperty("--safe-bottom", `${bottom}px`);
-        root.style.setProperty("--content-safe-top", `${contentTop}px`);
+        root.style.setProperty("--safe-top", `${tg.safeAreaInset?.top || 0}px`);
+        root.style.setProperty("--content-safe-top", `${tg.contentSafeAreaInset?.top || 0}px`);
       };
 
       applyViewportHeight();
       applySafeAreas();
-
       tg.onEvent("viewportChanged", applyViewportHeight);
       tg.onEvent("safeAreaChanged", applySafeAreas);
-      tg.onEvent("contentSafeAreaChanged", applySafeAreas);
 
-      // 5. Сессия
+      // 3. Сессия
       if (tg.initDataUnsafe?.user) {
         const u = tg.initDataUnsafe.user;
         setSession({
           user: {
             id: `tg-${u.id}`,
             email: u.username ? `@${u.username}` : `${u.first_name}`,
-            user_metadata: {
-              full_name: u.first_name,
-              avatar_url: u.photo_url || null,
-            },
+            user_metadata: { full_name: u.first_name, avatar_url: u.photo_url || null },
           },
         });
       }
 
       return () => {
+        document.body.classList.remove("is-tg");
         tg.offEvent("viewportChanged", applyViewportHeight);
         tg.offEvent("safeAreaChanged", applySafeAreas);
-        tg.offEvent("contentSafeAreaChanged", applySafeAreas);
       };
+    } else {
+      // ЕСЛИ МЫ В CHROME: Чистим всё, что мог наворотить скрипт
+      document.body.classList.remove("is-tg");
+      document.documentElement.style.setProperty("--tg-vh", "1vh");
+      document.documentElement.style.setProperty("--content-safe-top", "0px");
     }
   }, []);
 

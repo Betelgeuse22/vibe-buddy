@@ -143,10 +143,6 @@ const Sidebar = ({
                         <LogOut size={14} /> Выйти
                       </button>
                     )}
-                    {/* <button className='logout-btn' onClick={handleLogout}>
-                      <LogOut size={14} />
-                      Выйти
-                    </button> */}
                   </div>
                 )}
               </div>

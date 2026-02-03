@@ -135,11 +135,9 @@ header {
   background: #1c1c1e;
   border-bottom: 1px solid var(--border-color);
   box-sizing: border-box;
-  padding-top: max(env(safe-area-inset-top), calc(var(--content-safe-top, 0px) + 40px), 20px);
-  padding-left: 15px;
-  padding-right: 15px;
   transition: padding-top 0.2s ease;
 }
+
 
 .header-left,
 .header-center,
@@ -238,6 +236,7 @@ header {
   flex-shrink: 0;
   margin: 0;
 }
+
 
 .menu-trigger-btn:hover {
   background: var(--bg-ai);
@@ -1587,4 +1586,40 @@ footer.input-area {
     padding-top: 10px;
     padding-left: 15px;
     padding-right: 15px;
+}
+
+body:not(.is-tg) .chat-container {
+  height: 100vh;
+  /* Стандартная высота для браузеров */
+}
+
+body:not(.is-tg) header {
+  /* Твои исходные падинги для Хрома, которые тебя устраивали */
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+.is-tg header {
+  /* Опускаем заголовок ниже кнопок Закрыть/Меню */
+  padding-top: calc(var(--content-safe-top, 0px) + 45px);
+  padding-bottom: 15px;
+}
+
+/* --- 2. СТИЛИ ТОЛЬКО ДЛЯ TELEGRAM (.is-tg) --- */
+body.is-tg .chat-container {
+  /* Используем твою формулу динамической высоты из useEffect */
+  height: calc(var(--tg-vh, 1vh) * 100);
+}
+
+body.is-tg header {
+  /* Огромный отступ только для ТГ, чтобы уйти из-под кнопок и системной панели */
+  /* Берем безопасную зону ТГ + 35px запаса */
+  padding-top: calc(var(--content-safe-top, 0px) + 35px);
+  padding-bottom: 10px;
+}
+
+/* Крестик сайдбара — опускаем только в ТГ */
+body.is-tg .menu-trigger-btn {
+  top: calc(var(--safe-top, 0px) + 40px);
+  right: 20px;
+  z-index: 9999;
 }
