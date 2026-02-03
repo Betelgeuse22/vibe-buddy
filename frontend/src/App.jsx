@@ -104,7 +104,12 @@ function App() {
 
       const applySafeAreas = () => {
         root.style.setProperty("--safe-top", `${tg.safeAreaInset?.top || 0}px`);
+        root.style.setProperty("--safe-bottom", `${tg.safeAreaInset?.bottom || 0}px`);
         root.style.setProperty("--content-safe-top", `${tg.contentSafeAreaInset?.top || 0}px`);
+        root.style.setProperty(
+          "--content-safe-bottom",
+          `${tg.contentSafeAreaInset?.bottom || 0}px`,
+        );
       };
 
       applyViewportHeight();
@@ -134,6 +139,9 @@ function App() {
       document.body.classList.remove("is-tg");
       document.documentElement.style.setProperty("--tg-vh", "1vh");
       document.documentElement.style.setProperty("--content-safe-top", "0px");
+      document.documentElement.style.setProperty("--content-safe-bottom", "0px");
+      document.documentElement.style.setProperty("--safe-top", "0px");
+      document.documentElement.style.setProperty("--safe-bottom", "0px");
     }
   }, []);
 

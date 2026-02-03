@@ -63,7 +63,7 @@ body {
    ========================================================================== */
 
 .chat-container {
-position: relative;
+  position: relative;
   display: grid;
   /* Меняем 70px на auto, чтобы хедер мог расширяться под падинги */
   grid-template-areas:
@@ -1598,19 +1598,19 @@ body.is-tg .sidebar .menu-trigger-btn {
 }
 
 footer.input-area {
-  padding-bottom: max(env(safe-area-inset-bottom), var(--safe-bottom, 0px), 15px);
+    padding-bottom: max(env(safe-area-inset-bottom),var(--safe-bottom, 0px),var(--content-safe-bottom, 0px),15px);
     padding-top: 10px;
     padding-left: 15px;
     padding-right: 15px;
 }
 
 body:not(.is-tg) .chat-container {
-  height: 100vh;
-  /* Стандартная высота для браузеров */
+    height: calc(var(--vh, 1vh) * 100);
+    height: 100dvh; /* Динамическая высота для мобильных браузеров */
 }
 
 body:not(.is-tg) header {
-height: 70px;
+  height: 70px;
   /* Оставляем как было для хрома */
   padding: 10px 20px;
   display: grid;
@@ -1618,11 +1618,6 @@ height: 70px;
   align-items: center;
   background: #1c1c1e;
   border-bottom: 1px solid var(--border-color);
-}
-.is-tg header {
-  /* Опускаем заголовок ниже кнопок Закрыть/Меню */
-  padding-top: calc(var(--content-safe-top, 0px) + 45px);
-  padding-bottom: 15px;
 }
 
 /* --- 2. СТИЛИ ТОЛЬКО ДЛЯ TELEGRAM (.is-tg) --- */
@@ -1633,25 +1628,23 @@ body.is-tg .chat-container {
 
 body.is-tg header {
   height: auto;
-    /* ВАЖНО: разрешаем хедеру быть выше */
-    min-height: 100px;
-    /* Опускаем контент в "зеленую зону". 
-       60px - это примерный запас, чтобы уйти ниже кнопок ТГ */
-    padding-top: calc(var(--content-safe-top, 0px) + 60px);
-    padding-bottom: 20px;
-    padding-left: 20px;
-    padding-right: 20px;
-  
-    display: grid;
-    grid-template-columns: 1fr 2fr 1fr;
-    align-items: center;
-    background: #1c1c1e;
-    border-bottom: 1px solid var(--border-color);
+  /* ВАЖНО: разрешаем хедеру быть выше */
+  min-height: 100px;
+  /* Опускаем контент в безопасную зону ТГ */
+  padding-top: calc(max(var(--content-safe-top, 0px), var(--safe-top, 0px)) + 56px);
+  padding-bottom: 20px;
+  padding-left: 20px;
+  padding-right: 20px;
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
+  align-items: center;
+  background: #1c1c1e;
+  border-bottom: 1px solid var(--border-color);
 }
 
 /* Крестик сайдбара — опускаем только в ТГ */
 body.is-tg .menu-trigger-btn {
-  top: calc(var(--safe-top, 0px) + 40px);
+  top: calc(max(var(--content-safe-top, 0px), var(--safe-top, 0px)) + 40px);
   right: 20px;
   z-index: 9999;
 }
