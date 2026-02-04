@@ -48,36 +48,76 @@ def extract_content(msg: Any) -> str:
 # --- ФУНКЦИЯ СУММАРИЗАЦИИ ---
 
 
-async def generate_summary(history: List[Any], current_summary: str = ""):
-    full_text = f"Existing Memory: {current_summary if current_summary else 'None'}\n\nRecent History:\n"
+async def generate_summary(
+    client: Any,
+    history: List[Any],
+    current_summary: str = "",
+    model: str = "gpt-4o-mini"
+) -> str:
+    """
+    Генерирует сжатое досье на пользователя на основе последних сообщений.
+    """
 
-    for m in history:
-        # Получаем роль максимально безопасно
-        raw_role = getattr(m, "role", None) or (
-            m.get("role") if isinstance(m, dict) else "user")
-        content = extract_content(m)
-        if content:
-            full_text += f"{raw_role}: {content}\n"
+    # 1. Берем только последние N сообщений, чтобы не взорвать контекст
+    # Саммари не нужно перечитывать ВСЮ историю, только то, что произошло недавно
+    recent_messages = history[-10:]
 
-    prompt = (
-        "You are a memory module. Create a concise summary of the conversation. "
-        "Update the existing memory with NEW personal facts about the user. "
-        "KEEP: Name, job, pets, mood patterns. DISCARD: Small talk. "
-        "Stay within 5-8 sentences. Write in 3rd person."
+    conversation_text = ""
+    for m in recent_messages:
+        # Универсальное извлечение данных (работает и с dict, и с Pydantic)
+        role = getattr(m, "role", None) or m.get(
+            "role") if isinstance(m, dict) else "unknown"
+
+        # Обработка контента (иногда он бывает списком в GPT-4 Vision)
+        content_raw = getattr(m, "content", None) or m.get(
+            "content") if isinstance(m, dict) else ""
+        if isinstance(content_raw, list):  # Если вдруг там мультимодальный контент
+            content = " ".join([c.get('text', '')
+                               for c in content_raw if c.get('type') == 'text'])
+        else:
+            content = str(content_raw)
+
+        conversation_text += f"{role}: {content}\n"
+
+    # Если диалог пустой, возвращаем старое саммари
+    if not conversation_text.strip():
+        return current_summary
+
+    # 2. Улучшенный промпт для "Досье"
+    # Мы просим модель работать аналитиком, а не просто "сжимать текст"
+    system_prompt = (
+        "You are an expert AI Memory Manager. Your goal is to maintain a concise but detailed user profile.\n"
+        "Input:\n"
+        "1. CURRENT PROFILE: The existing knowledge about the user.\n"
+        "2. NEW DIALOGUE: Recent interaction chunks.\n\n"
+        "Instructions:\n"
+        "- Update the profile with NEW facts found in the dialogue (Name, Hobbies, Job, Pets, Specific Preferences).\n"
+        "- CONTRADICTIONS: If new info contradicts old info, trust the new info (people change).\n"
+        "- STYLE: Write in bullet points or a short paragraph. Keep it under 100 words.\n"
+        "- IGNORE: Greetings, small talk, temporary context (e.g. 'I'm tired now').\n"
+        "- OUTPUT: Return ONLY the updated profile text."
     )
+
+    user_content = f"CURRENT PROFILE:\n{current_summary or 'Empty'}\n\nNEW DIALOGUE:\n{conversation_text}"
 
     try:
         response = await client.chat.completions.create(
-            model=CURRENT_MODEL,
+            model=model,
             messages=[
-                {"role": "system", "content": prompt},
-                {"role": "user", "content": f"History to analyze:\n{full_text}"}
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_content}
             ],
-            temperature=0.3
+            temperature=0.3,  # Низкая температура для точности фактов
+            max_tokens=200
         )
-        return response.choices[0].message.content
+
+        new_summary = response.choices[0].message.content.strip()
+        print(f"✅ Memory Updated: {new_summary[:50]}...")  # Лог для отладки
+        return new_summary
+
     except Exception as e:
-        print(f"❌ Саммари упало: {e}")
+        print(f"❌ Error updating memory: {e}")
+        # Если упало — возвращаем старое, чтобы не потерять память
         return current_summary
 
 # --- ГЛАВНАЯ ФУНКЦИЯ 'МОЗГА' ---
