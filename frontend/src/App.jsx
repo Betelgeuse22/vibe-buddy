@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, SendHorizonal, X as CloseIcon, LogOut } from "lucide-react";
 import { supabase } from "./supabaseClient";
+import { translations } from "./translations";
 
 // Наши компоненты
 import Sidebar from "./Sidebar";
@@ -38,8 +39,11 @@ function App() {
   const [isLabOpen, setIsLabOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [toast, setToast] = useState(null);
+  const [lang, setLang] = useState(() => localStorage.getItem("lang") || "ru");
+  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
 
   const messagesEndRef = useRef(null);
+  const t = translations[lang] || translations.ru;
 
   const getDateLabel = (isoString) => {
     const date = new Date(isoString);
@@ -47,11 +51,25 @@ function App() {
     const yesterday = new Date();
     yesterday.setDate(today.getDate() - 1);
 
-    if (date.toDateString() === today.toDateString()) return "Сегодня";
-    if (date.toDateString() === yesterday.toDateString()) return "Вчера";
+    const t = translations[lang]; // Берем текущий язык
 
-    return date.toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
+    if (date.toDateString() === today.toDateString()) return t.today;
+    if (date.toDateString() === yesterday.toDateString()) return t.yesterday;
+
+    return date.toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", {
+      day: "numeric",
+      month: "long",
+    });
   };
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme); // Сохраняем тему
+  }, [theme]);
+
+  useEffect(() => {
+    localStorage.setItem("lang", lang); // Сохраняем язык
+  }, [lang]);
 
   useEffect(() => {
     const setVh = () => {
@@ -263,7 +281,7 @@ function App() {
       };
       setMessages((prev) => [...prev, aiMsg]);
     } catch (e) {
-      showToast("Ошибка связи с ИИ", "danger");
+      showToast(t.toast_ai_error, "danger");
     } finally {
       setIsLoading(false);
     }
@@ -273,7 +291,7 @@ function App() {
   useEffect(() => {
     if (tg?.MainButton) {
       if (input.trim() && personalityId && !isLoading) {
-        tg.MainButton.setText("ОТПРАВИТЬ");
+        tg.MainButton.setText(t.send);
         tg.MainButton.show();
       } else {
         tg.MainButton.hide();
@@ -402,7 +420,7 @@ function App() {
                             setIsProfileOpen(false);
                           }}
                         >
-                          <LogOut size={16} /> Выйти
+                          <LogOut size={16} /> {t.logout}
                         </button>
                       )}
                     </motion.div>
@@ -420,7 +438,14 @@ function App() {
       <main className='messages-list'>
         <AnimatePresence mode='wait'>
           {!personalityId ? (
-            <WelcomeScreen onOpenSidebar={() => setIsMenuOpen(true)} isLoading={isInitialLoading} />
+            <WelcomeScreen
+              lang={lang}
+              setLang={setLang}
+              theme={theme}
+              setTheme={setTheme}
+              onOpenSidebar={() => setIsMenuOpen(true)}
+              isLoading={isInitialLoading}
+            />
           ) : (
             <motion.div
               initial={{ opacity: 0 }}
@@ -475,7 +500,7 @@ function App() {
           onChange={(e) => setInput(e.target.value)}
           disabled={!personalityId}
           onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-          placeholder='Напиши бро...'
+          placeholder={t.placeholder}
         />
         <button
           className='send-btn'
@@ -487,6 +512,10 @@ function App() {
       </footer>
 
       <Sidebar
+        lang={lang}
+        setLang={setLang}
+        theme={theme}
+        setTheme={setTheme}
         isOpen={isMenuOpen}
         onClose={() => setIsMenuOpen(false)}
         personalities={personalities}
@@ -497,29 +526,33 @@ function App() {
           setIsMenuOpen(false);
         }}
         onAdd={() => {
+          if (!session) {
+            showToast(t.lab_auth_error, "danger");
+            return;
+          }
           setIsLabOpen(true);
           setIsMenuOpen(false);
         }}
         onClearHistory={(id) => {
-          if (window.confirm("Очистить историю?")) {
+          if (window.confirm(t.confirm_clear)) {
             fetch(`${API_URL}/messages?personality_id=${id}&user_id=${session?.user?.id}`, {
               method: "DELETE",
             });
             setMessages([]);
-            showToast("История очищена 🧹");
+            showToast(t.toast_cleared);
           }
         }}
         onDeletePersona={async (id) => {
-          if (window.confirm("Удалить этого бро навсегда?")) {
+          if (window.confirm(t.confirm_delete)) {
             try {
               const res = await fetch(`${API_URL}/personalities/${id}`, { method: "DELETE" });
               if (res.ok) {
                 setPersonalities((prev) => prev.filter((p) => p.id !== id));
                 if (personalityId === id) setPersonalityId(null);
-                showToast("Персонаж удален", "info");
+                showToast(t.toast_deleted, "danger");
               }
             } catch (e) {
-              showToast("Не удалось удалить", "danger");
+              showToast(t.toast_delete_error, "danger");
             }
           }
         }}
@@ -527,12 +560,14 @@ function App() {
       />
 
       <CharacterLab
+        lang={lang}
         isOpen={isLabOpen}
         onClose={() => setIsLabOpen(false)}
         session={session}
         onCharacterAdded={(char) => {
           setPersonalities((p) => [...p, char]);
           setPersonalityId(char.id);
+          showToast(t.toast_created, "success");
         }}
       />
 

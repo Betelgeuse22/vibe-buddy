@@ -1,9 +1,21 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence, useDragControls } from "framer-motion";
-import { Trash2, Users, Plus, X, MoreVertical, Paintbrush, LogOut } from "lucide-react";
+import {
+  Sun,
+  Moon,
+  Languages,
+  Trash2,
+  Users,
+  Plus,
+  X,
+  MoreVertical,
+  Paintbrush,
+  LogOut,
+  Settings,
+} from "lucide-react";
+import { translations } from "./translations";
 import { supabase } from "./supabaseClient";
 
-// Иконка Google осталась компонентом для чистоты
 const GoogleIcon = () => (
   <svg width='18' height='18' viewBox='0 0 18 18' xmlns='http://www.w3.org/2000/svg'>
     <path
@@ -30,34 +42,35 @@ const Sidebar = ({
   onClose,
   personalities,
   currentId,
-  session, // 👈 Получаем сессию
+  session,
   onSelect,
   onAdd,
   onDeletePersona,
   onClearHistory,
   getAvatarUrl,
+  lang = "ru",
+  setLang,
+  theme = "dark",
+  setTheme,
 }) => {
   const controls = useDragControls();
   const [activeMenu, setActiveMenu] = useState(null);
+  const t = translations[lang] || translations.ru;
+
+  const tg = window.Telegram?.WebApp;
 
   const handleAction = (callback, id) => {
     callback(id);
     setActiveMenu(null);
   };
 
-  const tg = window.Telegram?.WebApp;
-
   const getSafeUserAvatar = (session) => {
     const url = session?.user?.user_metadata?.avatar_url;
-
     if (url && url.startsWith("http")) return url;
-
     const seed = session?.user?.user_metadata?.full_name || session?.user?.email || "user";
-
     return `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(seed)}`;
   };
 
-  // Логика входа
   const handleGoogleLogin = async () => {
     await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -66,7 +79,6 @@ const Sidebar = ({
     });
   };
 
-  // Логика выхода
   const handleLogout = async () => {
     await supabase.auth.signOut();
   };
@@ -99,63 +111,51 @@ const Sidebar = ({
 
             <div className='sidebar-header'>
               <div className='sidebar-auth-section'>
-                <p className='sidebar-section-title'>Аккаунт</p>
-
-                {/* 👇 ПЕРЕКЛЮЧАТЕЛЬ: ВХОД / ПРОФИЛЬ */}
+                <p className='sidebar-section-title'>{t.account}</p>
                 {!session ? (
                   <button className='google-auth-btn' onClick={handleGoogleLogin}>
                     <GoogleIcon />
-                    <span>Войти через Google</span>
+                    <span>{t.login_google}</span>
                   </button>
                 ) : (
                   <div className='user-profile-card'>
                     <div className='user-info'>
-                      {/* 👇 ЛОГИКА АВАТАРА */}
                       {session.user.user_metadata.avatar_url ? (
                         <img
                           src={getSafeUserAvatar(session)}
                           alt='User'
                           className='user-avatar'
                           referrerPolicy='no-referrer'
-                          onError={(e) => {
-                            const seed =
-                              session.user.user_metadata.full_name || session.user.email || "user";
-
-                            e.currentTarget.src = `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(seed)}`;
-                          }}
                         />
                       ) : (
                         <div className='user-avatar avatar-placeholder'>
-                          {/* Берем первую букву имени или почты */}
                           {(session.user.user_metadata.full_name || session.user.email || "?")[0]}
                         </div>
                       )}
-
                       <div className='user-text'>
                         <span className='user-name'>
-                          {session.user.user_metadata.full_name || "Пользователь"}
+                          {session.user.user_metadata.full_name || t.user_default}
                         </span>
                         <span className='user-email'>{session.user.email}</span>
                       </div>
                     </div>
                     {!tg?.initDataUnsafe?.user && (
                       <button className='logout-btn' onClick={handleLogout}>
-                        <LogOut size={14} /> Выйти
+                        <LogOut size={14} /> {t.logout || "Выйти"}
                       </button>
                     )}
                   </div>
                 )}
               </div>
-
               <button className='menu-trigger-btn' onClick={onClose} style={{ marginTop: "-10px" }}>
-                <X size={24} color='white' />
+                <X size={24} />
               </button>
             </div>
 
             <div className='sidebar-content'>
               <div className='sidebar-section'>
                 <p className='sidebar-section-title'>
-                  <Users size={14} /> Твои друзья
+                  <Users size={14} /> {t.sidebar_title}
                 </p>
                 <div className='personality-list'>
                   {personalities.map((p) => (
@@ -177,7 +177,6 @@ const Sidebar = ({
                             alt={p.name}
                             className='persona-avatar-img'
                           />
-
                           {p.id === currentId && (
                             <span
                               className='persona-status-dot'
@@ -216,23 +215,20 @@ const Sidebar = ({
                                 initial={{ opacity: 0, scale: 0.95, y: -10 }}
                                 animate={{ opacity: 1, scale: 1, y: 0 }}
                                 exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                                transition={{ duration: 0.15 }}
                               >
                                 {p.is_custom && (
                                   <button
                                     onClick={() => handleAction(onDeletePersona, p.id)}
                                     className='dropdown-item danger'
                                   >
-                                    <Trash2 size={16} />
-                                    <span>Удалить</span>
+                                    <Trash2 size={16} /> <span>{t.delete}</span>
                                   </button>
                                 )}
                                 <button
                                   onClick={() => handleAction(onClearHistory, p.id)}
                                   className='dropdown-item'
                                 >
-                                  <Paintbrush size={16} />
-                                  <span>Очистить историю</span>
+                                  <Paintbrush size={16} /> <span>{t.clear_history}</span>
                                 </button>
                               </motion.div>
                             </>
@@ -244,11 +240,37 @@ const Sidebar = ({
                 </div>
               </div>
 
-              {/* Кнопка создания доступна всем (пока) */}
               <button className='add-friend-btn' onClick={onAdd}>
                 <Plus size={20} />
-                <span>Создать друга</span>
+                <span>{t.add_buddy}</span>
               </button>
+
+              {/* 👇 ПЕРЕНЕСЛИ НАСТРОЙКИ ВНУТРЬ SIDEBAR-CONTENT */}
+              <div className='sidebar-settings'>
+                {/* Заголовок блока в стиле "Твои друзья" */}
+                <p className='sidebar-section-title'>
+                  <Settings size={14} /> {t.settings}
+                </p>
+
+                <div className='settings-row'>
+                  {/* Язык */}
+                  <button
+                    className={`settings-btn ${lang === "en" ? "active" : ""}`}
+                    onClick={() => setLang(lang === "ru" ? "en" : "ru")}
+                  >
+                    <Languages size={22} /> {/* 👈 Увеличили до 24 */}
+                  </button>
+
+                  {/* Тема */}
+                  <button
+                    className={`settings-btn theme-toggle ${theme}`}
+                    onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                  >
+                    {theme === "dark" ? <Sun size={22} /> : <Moon size={22} />}{" "}
+                    {/* 👈 Увеличили до 24 */}
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div className='sidebar-footer'>

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { translations } from "./translations";
 
-const WelcomeScreen = ({ onOpenSidebar, isLoading }) => {
+const WelcomeScreen = ({ onOpenSidebar, isLoading, theme = "dark", lang = "ru" }) => {
   const [stage, setStage] = useState("text");
+  const t = translations[lang].welcome;
 
   // Устанавливаем 100, если данные уже загружены, иначе 0
   const [progress, setProgress] = useState(isLoading ? 0 : 100);
@@ -33,6 +35,8 @@ const WelcomeScreen = ({ onOpenSidebar, isLoading }) => {
     return () => clearTimeout(timer);
   }, []);
 
+  const logoSrc = theme === "dark" ? "/logo-light.png" : "/logo-dark.png";
+
   return (
     <div className='welcome-screen'>
       <AnimatePresence mode='wait'>
@@ -45,7 +49,7 @@ const WelcomeScreen = ({ onOpenSidebar, isLoading }) => {
             transition={{ duration: 0.8 }}
             className='welcome-quote'
           >
-            Выбери, с кем завайбим сегодня...
+            {t.quote}
           </motion.h2>
         ) : (
           <motion.div
@@ -54,7 +58,7 @@ const WelcomeScreen = ({ onOpenSidebar, isLoading }) => {
             animate={{ opacity: 1 }}
             className='welcome-logo-area'
           >
-            <img src='/logo-light.png' alt='Logo' className='main-logo-img' />
+            <img src={logoSrc} alt='Logo' className='main-logo-img' />
             <h1 className='logo-text'>VibeBuddy</h1>
 
             {/* ШКАЛА: Показываем только если прогресс меньше 100 */}
@@ -73,21 +77,21 @@ const WelcomeScreen = ({ onOpenSidebar, isLoading }) => {
                     }}
                   />
                 </div>
-                <p className='logo-sub'>Пробуждаю нейронные связи...</p>
+                <p className='logo-sub'>{t.loading}</p>
               </>
             )}
 
             {/* Если всё готово, показываем финальный текст и кнопку */}
             {progress === 100 && (
               <>
-                <p className='logo-sub'>Все друзья в сборе</p>
+                <p className='logo-sub'>{t.ready}</p>
                 <motion.button
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   className='start-btn'
                   onClick={onOpenSidebar}
                 >
-                  Выбрать друга
+                  {t.action}
                 </motion.button>
               </>
             )}

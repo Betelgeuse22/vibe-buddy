@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { X, Sparkles, RefreshCw, ChevronDown, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { translations } from "./translations";
 
 // Получаем URL API (теперь запрос идет отсюда)
 const API_URL = import.meta.env.VITE_API_URL;
 
-const CharacterLab = ({ isOpen, onClose, session, onCharacterAdded }) => {
+const CharacterLab = ({ isOpen, onClose, session, onCharacterAdded, lang = "ru" }) => {
   const avatarStyles = [
     { id: "avataaars", name: "Avatars" },
     { id: "lorelei", name: "Lorelei" },
@@ -26,6 +27,8 @@ const CharacterLab = ({ isOpen, onClose, session, onCharacterAdded }) => {
     visual_style: "#0a84ff",
     avatar: `avataaars:${generateRandomSeed()}`,
   });
+
+  const t = translations[lang].lab;
 
   const [isStyleOpen, setIsStyleOpen] = useState(false);
   const [style, seed] = formData.avatar.split(":");
@@ -69,7 +72,7 @@ const CharacterLab = ({ isOpen, onClose, session, onCharacterAdded }) => {
     // 1. Проверяем авторизацию
     const userId = session?.user?.id;
     if (!userId) {
-      setServerError("Ошибка: Войдите в аккаунт, чтобы создать персонажа!");
+      setServerError(t.lab_auth_error);
       return;
     }
 
@@ -124,7 +127,7 @@ const CharacterLab = ({ isOpen, onClose, session, onCharacterAdded }) => {
         <div className='lab-header'>
           <div className='lab-title'>
             <Sparkles size={20} color='var(--accent-blue)' />
-            <span>Character Lab</span>
+            <span>{t.title}</span>
           </div>
           <button onClick={onClose} className='lab-close-btn'>
             <X size={24} />
@@ -136,14 +139,14 @@ const CharacterLab = ({ isOpen, onClose, session, onCharacterAdded }) => {
           {serverError && <div className='lab-server-error'>{serverError}</div>}
 
           <div className='lab-field'>
-            <label>Имя бро</label>
+            <label>{t.name}</label>
             <input
               required
               disabled={isLoading}
               className={showErrors && !isNameValid ? "input-error" : ""}
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder='Напр: Кибер-Кот'
+              placeholder={t.name_ph}
             />
           </div>
 
@@ -193,14 +196,14 @@ const CharacterLab = ({ isOpen, onClose, session, onCharacterAdded }) => {
                   disabled={isLoading}
                 >
                   <RefreshCw size={12} />
-                  <span>Рандом</span>
+                  <span>{t.random}</span>
                 </button>
               </div>
             </div>
 
             {/* Группа Цвета */}
             <div className='color-control-group'>
-              <label>Тема</label>
+              <label>{t.color}</label>
               <label className='color-picker-trigger'>
                 <input
                   type='color'
@@ -219,18 +222,18 @@ const CharacterLab = ({ isOpen, onClose, session, onCharacterAdded }) => {
           </div>
 
           <div className='lab-field'>
-            <label>Кто он? (Описание)</label>
+            <label>{t.prompt_1}</label>
             <input
               disabled={isLoading}
               className={showErrors && !isDescValid ? "input-error" : ""}
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder='Коротко о характере...'
+              placeholder={t.prompt_ph_1}
             />
           </div>
 
           <div className='lab-field'>
-            <label>Системная инструкция (Душа)</label>
+            <label>{t.prompt}</label>
             <textarea
               disabled={isLoading}
               className={showErrors && !isSystemValid ? "input-error" : ""}
@@ -238,12 +241,12 @@ const CharacterLab = ({ isOpen, onClose, session, onCharacterAdded }) => {
               rows='4'
               value={formData.system_instruction}
               onChange={(e) => setFormData({ ...formData, system_instruction: e.target.value })}
-              placeholder='Напиши, как он должен общаться...'
+              placeholder={t.prompt_ph}
             />
             <span className={`field-hint ${remaining > 0 ? "hint-error" : "hint-success"}`}>
               {remaining > 0
-                ? `Нужно еще минимум ${remaining} симв. для крутого вайба`
-                : "Вайб настроен! ✨"}
+                ? `${t.prompt_need} ${remaining} ${t.prompt_chars}` // Склеиваем локализованную строку
+                : t.prompt_ready}
             </span>
           </div>
 
@@ -261,7 +264,7 @@ const CharacterLab = ({ isOpen, onClose, session, onCharacterAdded }) => {
             }}
           >
             {isLoading && <Loader2 className='animate-spin' size={18} />}
-            {isLoading ? "Сохраняем..." : "Создать персонажа"}
+            {isLoading ? t.saving : t.save}
           </button>
         </form>
       </div>
