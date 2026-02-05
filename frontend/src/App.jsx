@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, SendHorizonal, X as CloseIcon, LogOut } from "lucide-react";
+import { Menu, SendHorizonal, X as CloseIcon, LogOut, Mic } from "lucide-react";
 import { supabase } from "./supabaseClient";
 import { translations } from "./translations";
 
@@ -41,6 +41,23 @@ function App() {
   const [toast, setToast] = useState(null);
   const [lang, setLang] = useState(() => localStorage.getItem("lang") || "ru");
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const recognitionRef = useRef(null);
+  const shouldSendRef = useRef(false);
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  const triggerHaptic = (type = "medium") => {
+    if (tg?.isVersionAtLeast?.("6.1") && tg?.HapticFeedback) {
+      if (type === "success" || type === "danger") {
+        tg.HapticFeedback.notificationOccurred(type);
+      } else {
+        tg.HapticFeedback.impactOccurred(type);
+      }
+    }
+  };
 
   const messagesEndRef = useRef(null);
   const t = translations[lang] || translations.ru;
@@ -234,56 +251,179 @@ function App() {
     fetchHistory();
   }, [personalityId, session]);
 
-  // --- 4. ЛОГИКА ОЖИДАНИЯ (Artificial Latency) ---
-  const simulateTypingDelay = (text) => {
-    // Базовая секунда + 30мс за символ, но не более 3 секунд
-    const delay = Math.min(1000 + text.length * 30, 3000);
-    return new Promise((resolve) => setTimeout(resolve, delay));
-  };
+  // --- 4. ОТПРАВКА СООБЩЕНИЯ ---
 
-  const sendMessage = async () => {
-    if (!input.trim() || isLoading) return;
+  const sendMessage = async (overrideInput) => {
+    const text = overrideInput || input;
+    if (!text.trim() || isLoading) return;
 
-    if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred("medium");
+    const currentPersona = personalities.find((p) => p.id === personalityId);
+    const currentTheme = currentPersona?.visual_style || "#ccc";
+
+    triggerHaptic("medium");
 
     const now = new Date().toISOString();
-    const userMsg = { role: "user", parts: [input], time: formatTime(now), timestamp: now };
-    const newMessages = [...messages, userMsg];
+    const userMsg = { role: "user", parts: [text], time: formatTime(now), timestamp: now };
 
-    setMessages(newMessages);
+    // 1. Сразу добавляем сообщение юзера и пустую заглушку для ИИ
+    const aiMsgPlaceholder = {
+      role: "model",
+      parts: [""],
+      time: formatTime(now),
+      timestamp: now,
+      theme: currentTheme,
+      isStreaming: true, // Пометка, что сообщение еще "растет"
+    };
+
+    setMessages((prev) => [...prev, userMsg, aiMsgPlaceholder]);
     setInput("");
     setIsLoading(true);
 
     try {
-      const res = await fetch(`${API_URL}/chat`, {
+      const response = await fetch(`${API_URL}/chat/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          history: newMessages.map((m) => ({ role: m.role, parts: m.parts })),
+          history: [...messages, userMsg].map((m) => ({ role: m.role, parts: m.parts })),
           personality_id: personalityId,
           user_id: session?.user?.id || null,
         }),
       });
 
-      const data = await res.json();
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulatedText = "";
 
-      // Ждем, пока "пропечатает" 🤖
-      await simulateTypingDelay(data.text);
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-      if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred("success");
+        const chunk = decoder.decode(value, { stream: true }); // Добавь { stream: true }
 
-      const aiMsg = {
-        role: "model",
-        parts: [data.text],
-        theme: data.visual_hint,
-        time: formatTime(new Date().toISOString()),
-        timestamp: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, aiMsg]);
+        // Правильная обработка потока данных
+        const lines = chunk.split("\n"); // Сплитим по одной строке
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          if (!trimmedLine || !trimmedLine.startsWith("data: ")) continue;
+
+          const content = trimmedLine.replace("data: ", "");
+          if (content === "[DONE]") break;
+
+          accumulatedText += content;
+
+          // Обновляем стейт
+          setMessages((prev) => {
+            const updated = [...prev];
+            const lastIndex = updated.length - 1;
+            if (lastIndex >= 0) {
+              updated[lastIndex] = {
+                ...updated[lastIndex], // Сохраняем тему, время и роль!
+                parts: [accumulatedText],
+              };
+            }
+            return updated;
+          });
+        }
+      }
+
+      // 3. Финализируем (убираем флаг стриминга)
+      setMessages((prev) => {
+        const updated = [...prev];
+        updated[updated.length - 1].isStreaming = false;
+        return updated;
+      });
+
+      triggerHaptic("success");
     } catch (e) {
       showToast(t.toast_ai_error, "danger");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // --- 6. ГОЛОСОВОЙ ВВОД ---
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // 1. Стандартная запись для Whisper (наш бэкенд)
+      mediaRecorderRef.current = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      mediaRecorderRef.current.ondataavailable = (e) => audioChunksRef.current.push(e.data);
+
+      // 2. Инициализируем "живое" распознавание (браузерное)
+      if (SpeechRecognition) {
+        recognitionRef.current = new SpeechRecognition();
+        recognitionRef.current.continuous = true; // Не останавливаться после первой паузы
+        recognitionRef.current.interimResults = true; // 👈 ГЛАВНОЕ: показывать промежуточные результаты
+        recognitionRef.current.lang = lang === "ru" ? "ru-RU" : "en-US";
+
+        recognitionRef.current.onresult = (event) => {
+          let interimTranscript = "";
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+              // Если фраза закончена, добавляем в инпут
+              setInput(event.results[i][0].transcript);
+            } else {
+              // Если фраза еще произносится, показываем её "призрачно"
+              interimTranscript += event.results[i][0].transcript;
+              setInput(interimTranscript); // Текст "бежит" в инпуте!
+            }
+          }
+        };
+
+        recognitionRef.current.start();
+      }
+
+      mediaRecorderRef.current.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/wav" });
+        const formData = new FormData();
+        formData.append("file", audioBlob, "voice.wav");
+
+        setIsLoading(true);
+        try {
+          const res = await fetch(`${API_URL}/chat/transcribe`, { method: "POST", body: formData });
+          const data = await res.json();
+
+          if (data.text) {
+            if (shouldSendRef.current) {
+              // Если была нажата кнопка отправки — шлем в чат
+              sendMessage(data.text);
+            } else {
+              // Если просто остановили микрофон — кладем в инпут
+              setInput(data.text);
+            }
+          }
+        } catch (e) {
+          showToast("Ошибка Whisper", "danger");
+        } finally {
+          setIsLoading(false);
+          shouldSendRef.current = false; // Сбрасываем флаг
+        }
+      };
+
+      mediaRecorderRef.current.start();
+      setIsRecording(true);
+    } catch (err) {
+      showToast("Микрофон недоступен", "danger");
+    }
+  };
+
+  const stopRecording = (autoSend = false) => {
+    if (mediaRecorderRef.current && isRecording) {
+      shouldSendRef.current = autoSend; // Запоминаем, нужно ли отправить сразу
+      mediaRecorderRef.current.stop();
+      recognitionRef.current?.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const toggleRecording = () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
     }
   };
 
@@ -495,17 +635,34 @@ function App() {
       </main>
 
       <footer className='input-area'>
+        <button
+          className={`mic-btn ${isRecording ? "recording" : ""}`}
+          onClick={toggleRecording} // 👈 Одно нажатие для всего
+          disabled={!personalityId || isLoading}
+        >
+          <Mic size={20} color={isRecording ? "var(--accent-red)" : "var(--text-muted)"} />
+        </button>
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          disabled={!personalityId}
+          // Если идет загрузка (расшифровка), меняем плейсхолдер
+          placeholder={
+            isLoading ? "Думаю над словами..." : isRecording ? "Слушаю..." : t.placeholder
+          }
+          disabled={!personalityId || isRecording || isLoading}
           onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-          placeholder={t.placeholder}
         />
         <button
           className='send-btn'
-          onClick={sendMessage}
-          disabled={isLoading || !input.trim() || !personalityId}
+          onClick={() => {
+            if (isRecording) {
+              stopRecording(true); // Остановить и отправить
+            } else {
+              sendMessage(); // Обычная отправка текста
+            }
+          }}
+          // Кнопка активна, если есть текст ИЛИ если идет запись
+          disabled={isLoading || !personalityId || (!input.trim() && !isRecording)}
         >
           <SendHorizonal size={20} />
         </button>

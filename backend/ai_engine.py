@@ -165,3 +165,40 @@ async def get_vibe_response(history_data: List[Any], db_instruction: str, curren
             "emotion": "confused",
             "visual_hint": "#808080"
         }
+
+
+async def get_chat_stream(history_data: List[Any], db_instruction: str, current_summary: Optional[str] = None):
+    """Стриминг с учетом личности и памяти"""
+    memory_part = f"\n\n[USER PROFILE / SHARED HISTORY]:\n{current_summary}" if current_summary else ""
+
+    # Собираем промпт (без требования JSON, так как стримить JSON сложно)
+    system_prompt = f"{db_instruction}{memory_part}\n\nОтвечай как живой человек, без лишних формальностей."
+
+    messages = [{"role": "system", "content": system_prompt}]
+    for msg in history_data:
+        content = extract_content(msg)
+        if content:
+            # Маппинг ролей для Groq
+            role = "assistant" if (getattr(msg, "role", None) or msg.get("role")) in [
+                "model", "assistant"] else "user"
+            messages.append({"role": role, "content": content})
+
+    response = await client.chat.completions.create(
+        model="llama-3.3-70b-versatile",  # Используем мощную модель для вайба
+        messages=messages,
+        stream=True
+    )
+    async for chunk in response:
+        content = chunk.choices[0].delta.content
+        if content:
+            yield content
+
+
+async def transcribe_voice(file_path: str):
+    """Логика расшифровки Whisper через Groq"""
+    with open(file_path, "rb") as audio_file:
+        transcription = await client.audio.transcriptions.create(
+            file=(file_path, audio_file),  # Передаем кортеж (имя, файл)
+            model="whisper-large-v3",
+        )
+    return transcription.text

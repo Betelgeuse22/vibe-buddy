@@ -1,5 +1,7 @@
 import uuid
-from fastapi import FastAPI, Depends, HTTPException, Query
+import os
+from fastapi import FastAPI, Depends, HTTPException, Query, Request, File, UploadFile
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from typing import List, Optional
@@ -9,7 +11,7 @@ from sqlmodel import select, Session, delete, or_
 # Наши модули
 from models import Personality, Message, Conversation
 from database import init_db, get_session
-from ai_engine import get_vibe_response, generate_summary
+from ai_engine import get_vibe_response, generate_summary, get_chat_stream, transcribe_voice
 
 
 @asynccontextmanager
@@ -223,3 +225,92 @@ def clear_messages(personality_id: int, user_id: Optional[str] = None, db: Sessi
 @app.get("/ping")
 def ping():
     return {"status": "online", "version": "7.1.0"}
+
+
+@app.post("/chat/stream")
+async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_session)):
+    # 1. Ищем персонажа
+    personality = db.exec(select(Personality).where(
+        Personality.id == request.personality_id)).first()
+    if not personality:
+        raise HTTPException(status_code=404, detail="Персонаж не найден")
+
+    uid_str = str(request.user_id) if request.user_id else None
+    current_summary = ""
+
+    # 2. Сохраняем сообщение пользователя в БД ПЕРЕД стримингом
+    if uid_str:
+        user_msg = Message(
+            role="user",
+            content=request.history[-1].parts[0],
+            personality_id=request.personality_id,
+            user_id=uid_str
+        )
+        db.add(user_msg)
+        db.commit()
+
+        # Ищем разговор для памяти
+        conversation = db.exec(select(Conversation).where(
+            Conversation.user_id == uid_str,
+            Conversation.personality_id == request.personality_id
+        )).first()
+        if conversation:
+            current_summary = conversation.summary
+
+    # 3. Генератор с сохранением ответа ИИ
+    async def sse_wrapper():
+        full_ai_response = ""
+        # Стримим из ai_engine
+        async for chunk in get_chat_stream(request.history, personality.system_instruction, current_summary):
+            full_ai_response += chunk
+            yield f"data: {chunk}\n\n"
+
+        # Когда стриминг окончен — сохраняем ответ ИИ в базу
+        if uid_str:
+            ai_msg = Message(
+                role="assistant",
+                content=full_ai_response,
+                # Тут можно добавить логику извлечения эмоции, если нужно
+                emotion="chill",
+                visual_hint=personality.visual_style,
+                personality_id=request.personality_id,
+                user_id=uid_str
+            )
+            db.add(ai_msg)
+            db.commit()
+
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        sse_wrapper(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+
+@app.post("/chat/transcribe")
+async def transcribe_endpoint(file: UploadFile = File(...)):
+    """Принимаем аудиофайл и превращаем его в текст"""
+    # 1. Создаем временный файл, чтобы Whisper мог его прочитать
+    temp_name = f"temp_{uuid.uuid4()}.wav"
+    try:
+        with open(temp_name, "wb") as f:
+            f.write(await file.read())
+
+        # 2. Вызываем функцию из ai_engine.py
+        text = await transcribe_voice(temp_name)
+
+        return {"text": text}
+
+    except Exception as e:
+        print(f"❌ Ошибка Whisper: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        # 3. Обязательно удаляем временный файл
+        if os.path.exists(temp_name):
+            os.remove(temp_name)
